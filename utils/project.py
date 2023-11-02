@@ -190,95 +190,59 @@ class Projector(object):
         """
         Compute vertex normals.
 
-        :param:
-            ver_xyz: [batch, N, 3], vertex geometry
-            tri: [M, 3], mesh triangles definition
+        :param ver_xyz: [batch, N, 3], vertex geometry
+        :param tri: [M, 3], mesh triangles definition
 
-        :return:
-            ver_normals: [batch, N, 3], vertex normals
+        :return: ver_normals: [batch, N, 3], vertex normals
         """
 
-        with tf.variable_scope(scope_name):
+        with tf.name_scope(scope_name):
+            # Extracting the vertices for each triangle
+            v1_idx, v2_idx, v3_idx = tf.unstack(tri, axis=-1)
+            v1 = tf.gather(ver_xyz, v1_idx, axis=1)
+            v2 = tf.gather(ver_xyz, v2_idx, axis=1)
+            v3 = tf.gather(ver_xyz, v3_idx, axis=1)
 
-            v1_idx, v2_idx, v3_idx = tf.unstack(tri, 3, axis=-1)
-            v1 = tf.gather(ver_xyz, v1_idx, axis=1, name="v1_tri")
-            v2 = tf.gather(ver_xyz, v2_idx, axis=1, name="v2_tri")
-            v3 = tf.gather(ver_xyz, v3_idx, axis=1, name="v3_tri")
-
+            # Calculating the normals for each triangle
             EPS = 1e-8
-            tri_normals = tf.cross(v2 - v1, v3 - v1)
-            tri_normals = tf.div(
-                tri_normals,
-                (tf.norm(tri_normals, axis=-1, keep_dims=True) + EPS),
-                name="norm_tri",
-            )
+            tri_normals = tf.linalg.cross(v2 - v1, v3 - v1)
+            tri_normals = tri_normals / (tf.norm(tri_normals, axis=-1, keepdims=True) + EPS)
+
+            # Accumulating vertex normals
             tri_normals = tf.tile(tf.expand_dims(tri_normals, 2), [1, 1, 3, 1])
             tri_normals = tf.reshape(tri_normals, [-1, 3])
-            tri_votes = tf.cast(tf.greater(tri_normals[:, 2:], float(0.1)), tf.float32)
+
+            tri_votes = tf.cast(tf.greater(tri_normals[:, 2:], 0.1), tf.float32)
             tri_cnts = tf.ones_like(tri_votes)
 
-            B = v1.get_shape().as_list()[0]  # batch size
-            batch_indices = tf.reshape(
-                tf.tile(tf.expand_dims(tf.range(B), axis=1), [1, len(tri) * 3]),
-                [-1],
-                name="batch_indices",
-            )
-            tri_inds = tf.stack(
-                [
-                    batch_indices,
-                    tf.concat([tf.reshape(tri, [len(tri) * 3])] * B, axis=0),
-                ],
-                axis=1,
-            )
+            B = ver_xyz.shape[0]  # batch size
+            tri_flat = tf.reshape(tri, [len(tri) * 3])
+            batch_indices = tf.repeat(tf.range(B), len(tri) * 3)
+            tri_inds = tf.stack([batch_indices, tf.tile(tri_flat, [B])], axis=1)
 
             ver_shape = ver_xyz.get_shape().as_list()
+            ver_normals = tf.Variable(tf.zeros(ver_shape), trainable=False)
+            votes = tf.reshape(tf.concat([tri_votes] * 3, axis=-1), [-1, 1])
+            cnts = tf.reshape(tf.concat([tri_cnts] * 3, axis=-1), [-1, 1])
 
-            ver_normals = tf.get_variable(
-                shape=ver_shape,
-                dtype=tf.float32,
-                initializer=tf.zeros_initializer(),
-                name="ver_norm",
-                trainable=False,
-            )
-            init_normals = tf.zeros(shape=ver_shape, dtype=tf.float32)
-            assign_op = tf.assign(ver_normals, init_normals)
-            with tf.control_dependencies([assign_op]):
-                ver_normals = tf.scatter_nd_add(ver_normals, tri_inds, tri_normals)
-                ver_normals = ver_normals / (
-                    tf.norm(ver_normals, axis=2, keep_dims=True) + EPS
-                )
+            ver_votes = tf.Variable(tf.zeros(ver_shape[:-1] + [1]), trainable=False)
+            ver_cnts = tf.Variable(tf.zeros(ver_shape[:-1] + [1]), trainable=False)
 
-            votes = tf.reshape(
-                tf.concat([tri_votes, tri_votes, tri_votes], axis=-1), [-1, 1]
-            )
-            cnts = tf.reshape(
-                tf.concat([tri_cnts, tri_cnts, tri_cnts], axis=-1), [-1, 1]
-            )
-            ver_votes = tf.get_variable(
-                shape=ver_shape[:-1] + [1],
-                dtype=tf.float32,
-                initializer=tf.zeros_initializer(),
-                name="ver_vote",
-                trainable=False,
-            )
-            ver_cnts = tf.get_variable(
-                shape=ver_shape[:-1] + [1],
-                dtype=tf.float32,
-                initializer=tf.zeros_initializer(),
-                name="ver_cnt",
-                trainable=False,
-            )
-            init_votes = tf.zeros(shape=ver_shape[:-1] + [1], dtype=tf.float32)
-            assign_op2 = tf.assign(ver_votes, init_votes)
-            assign_op3 = tf.assign(ver_cnts, init_votes)
-            with tf.control_dependencies([assign_op2, assign_op3]):
-                ver_votes = tf.scatter_nd_add(ver_votes, tri_inds, tri_votes)
-                ver_cnts = tf.scatter_nd_add(ver_cnts, tri_inds, tri_cnts)
+            # Accumulating normals for each vertex
+            with tf.control_dependencies([ver_normals.assign(tf.zeros_like(ver_normals))]):
+                ver_normals = tf.tensor_scatter_nd_add(ver_normals, tri_inds, tri_normals)
+                ver_normals = ver_normals / (tf.norm(ver_normals, axis=2, keepdims=True) + EPS)
+
+            # Calculating contour mask
+            with tf.control_dependencies([
+                ver_votes.assign(tf.zeros_like(ver_votes)),
+                ver_cnts.assign(tf.zeros_like(ver_cnts))
+            ]):
+                ver_votes = tf.tensor_scatter_nd_add(ver_votes, tri_inds, votes)
+                ver_cnts = tf.tensor_scatter_nd_add(ver_cnts, tri_inds, cnts)
                 ver_votes = ver_votes / (ver_cnts + EPS)
 
-                ver_votes1 = tf.less(ver_votes, float(1.0))
-                ver_votes2 = tf.greater(ver_votes, float(0.0))
-                ver_votes = tf.cast(tf.logical_and(ver_votes1, ver_votes2), tf.float32)
+                ver_votes = tf.cast(tf.logical_and(ver_votes > 0, ver_votes < 1), tf.float32)
 
             return ver_normals, ver_votes
 
@@ -316,84 +280,58 @@ class Projector(object):
 
     @staticmethod
     def generate_proj_information(
-        ver_xyz,
-        trans_Mat,
-        K_img,
-        imageH,
-        imageW,
-        tri,
-        project_type="Pers",
-        name="ver_norm_and_ver_depth",
+            ver_xyz,
+            trans_Mat,
+            K_img,
+            imageH,
+            imageW,
+            tri,
+            project_type="Pers",
+            name="ver_norm_and_ver_depth",
     ):
 
         ver_w = tf.ones_like(ver_xyz[:, :, 0:1], name="ver_w")
         ver_xyzw = tf.concat([ver_xyz, ver_w], axis=2)  # 1, 20481, 4
-        vertex_img = tf.matmul(ver_xyzw, trans_Mat)  # 1 x 20481 x 4
+        vertex_img = ver_xyzw @ trans_Mat  # 1 x 20481 x 4
         cam_xyz = vertex_img[:, :, 0:3]  # 1 x 20481 x 3
 
         K_img = tf.transpose(K_img, [0, 2, 1])  # 1 x 3 x 3
-        proj_xyz_batch = tf.matmul(cam_xyz, K_img)  # 1 x 20481 x 3
-        proj_xyz_depth_batch = tf.matmul(cam_xyz, K_img)  # 1 x 20481 x 3
+        proj_xyz_batch = cam_xyz @ K_img  # 1 x 20481 x 3
+        proj_xyz_depth_batch = cam_xyz @ K_img  # 1 x 20481 x 3
 
         if project_type == "Orth":
-            clip_x = tf.expand_dims(
-                (proj_xyz_batch[:, :, 0] + imageW / 2) / imageW * 2 - 1, axis=2
-            )  # 1 x 20481 x 1
-            clip_y = tf.expand_dims(
-                (proj_xyz_batch[:, :, 1] + imageH / 2) / imageH * 2 - 1, axis=2
-            )  # 1 x 20481 x 1
+            clip_x = ((proj_xyz_batch[:, :, 0] + imageW / 2) / imageW * 2 - 1)[:, :, None]
+            clip_y = ((proj_xyz_batch[:, :, 1] + imageH / 2) / imageH * 2 - 1)[:, :, None]
         else:
-            clip_x = tf.expand_dims(
-                (proj_xyz_batch[:, :, 0] / proj_xyz_batch[:, :, 2]) / imageW * 2 - 1,
-                axis=2,
-            )  # 1 x 20481 x 1
-            clip_y = tf.expand_dims(
-                (proj_xyz_batch[:, :, 1] / proj_xyz_batch[:, :, 2]) / imageH * 2 - 1,
-                axis=2,
-            )  # 1 x 20481 x 1
-        clip_z = tf.expand_dims(
-            tf.nn.l2_normalize(proj_xyz_batch[:, :, 2], dim=1, epsilon=1e-10), axis=2
-        )
+            clip_x = ((proj_xyz_batch[:, :, 0] / proj_xyz_batch[:, :, 2]) / imageW * 2 - 1)[:, :, None]
+            clip_y = ((proj_xyz_batch[:, :, 1] / proj_xyz_batch[:, :, 2]) / imageH * 2 - 1)[:, :, None]
+        clip_z = tf.nn.l2_normalize(proj_xyz_batch[:, :, 2], axis=1, epsilon=1e-10)[:, :, None]
 
         clip_xyz = tf.concat([clip_x, clip_y, clip_z], axis=2)  # 1, 20481, 3
         clip_w = tf.ones_like(clip_xyz[:, :, 0:1], name="clip_w")
         clip_xyzw = tf.concat([clip_xyz, clip_w], axis=2)  # 1, 20481, 4
 
         if project_type == "Orth":
-            proj_x = tf.expand_dims(
-                proj_xyz_batch[:, :, 0] + imageW / 2, axis=2
-            )  # 1 x 20481 x 1
-            proj_y = tf.expand_dims(proj_xyz_batch[:, :, 1] + imageH / 2, axis=2)
+            proj_x = (proj_xyz_batch[:, :, 0] + imageW / 2)[:, :, None]
+            proj_y = (proj_xyz_batch[:, :, 1] + imageH / 2)[:, :, None]
         else:
-            proj_x = tf.expand_dims(
-                proj_xyz_batch[:, :, 0] / proj_xyz_batch[:, :, 2], axis=2
-            )  # 1 x 20481 x 1
-            proj_y = tf.expand_dims(
-                proj_xyz_batch[:, :, 1] / proj_xyz_batch[:, :, 2], axis=2
-            )  # 1 x 20481 x 1
-
-        proj_z = tf.expand_dims(proj_xyz_batch[:, :, 2], axis=2)
+            proj_x = (proj_xyz_batch[:, :, 0] / proj_xyz_batch[:, :, 2])[:, :, None]
+            proj_y = (proj_xyz_batch[:, :, 1] / proj_xyz_batch[:, :, 2])[:, :, None]
+        proj_z = proj_xyz_batch[:, :, 2][:, :, None]
         proj_xy = tf.concat([proj_x, proj_y], axis=2)  # 1, 20481, 2
 
-        depth_infor = tf.expand_dims(
-            proj_xyz_depth_batch[:, :, 2], axis=2
-        )  # 1 x 20481 x 1
-        with tf.variable_scope(name):
-            ver_norm, ver_contour_mask = Projector.get_ver_norm(cam_xyz, tri)
-            norm_depth_infro = tf.concat(
-                [ver_norm, depth_infor, ver_contour_mask], axis=2
-            )  # 1, 20481, 4
-            norm_depth_image, alphas = rasterize_clip_space(
-                clip_xyzw, norm_depth_infro, tri, imageW, imageH, 0.0
-            )
+        depth_infor = proj_xyz_depth_batch[:, :, 2][:, :, None]
 
-            norm_image = norm_depth_image[:, :, :, 0:3]  # (300,300)
+        # NOTE: The function get_ver_norm is assumed to be defined elsewhere
+        ver_norm, ver_contour_mask = Projector.get_ver_norm(cam_xyz, tri)
+        norm_depth_infro = tf.concat([ver_norm, depth_infor, ver_contour_mask], axis=2)  # 1, 20481, 4
 
-            depth_image = tf.expand_dims(norm_depth_image[:, :, :, 3], 3)  # (300,300)
-
-            ver_contour_mask_image = tf.expand_dims(
-                norm_depth_image[:, :, :, 4], 3
-            )  # (300,300)
+        norm_depth_image, alphas = rasterize_clip_space(
+            clip_xyzw, norm_depth_infro, tri, imageW, imageH, 0.0
+        )
+        norm_image = norm_depth_image[:, :, :, 0:3]
+        depth_image = norm_depth_image[:, :, :, 3:4]
+        ver_contour_mask_image = norm_depth_image[:, :, :, 4:5]
 
         return (
             norm_image,

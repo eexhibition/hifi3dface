@@ -32,7 +32,6 @@ import numpy as np
 import scipy.io as scio
 import cv2
 import tensorflow as tf
-import tensorflow.contrib.opt as tf_opt
 import os
 from absl import app, flags
 import sys
@@ -51,69 +50,77 @@ from PIL import Image
 def define_variable(num_of_img, imageH, imageW, para_shape_shape, para_tex_shape, info):
 
     # variable-trainable=False
-    image_batch = tf.get_variable(
+    image_batch = tf.Variable(
+        initial_value=info["img_list"] / 255.0,
         shape=[num_of_img, imageH, imageW, 3],
         dtype=tf.float32,
         name="ori_img",
-        trainable=False,
-        initializer=tf.constant_initializer(info["img_list"] / 255.0),
+        trainable=False
     )
 
-    segmentation = tf.get_variable(
+    segmentation = tf.Variable(
+        initial_value=info["seg_list"],
         shape=[num_of_img, imageH, imageW, 19],
         dtype=tf.float32,
         name="face_segmentation",
-        trainable=False,
-        initializer=tf.constant_initializer(info["seg_list"]),
+        trainable=False
     )
 
-    lmk_86_3d_batch = tf.get_variable(
+    lmk_86_3d_batch = tf.Variable(
+        initial_value=info["lmk_list3D"],
         shape=[num_of_img, 86, 2],
         dtype=tf.float32,
         name="lmk_86_3d_batch",
-        trainable=False,
-        initializer=tf.constant_initializer(info["lmk_list3D"]),
+        trainable=False
     )
 
-    lmk_68_2d_batch = tf.get_variable(
+    lmk_68_2d_batch = tf.Variable(
+        initial_value=info["lmk_list2D"],
         shape=[num_of_img, 68, 2],
         dtype=tf.float32,
         name="lmk_68_2d_batch",
-        trainable=False,
-        initializer=tf.constant_initializer(info["lmk_list2D"]),
+        trainable=False
     )
 
-    K = tf.get_variable(
+    K = tf.Variable(
+        initial_value=info["K"],
         shape=[1, 3, 3],
         dtype=tf.float32,
         name="K",
-        trainable=False,
-        initializer=tf.constant_initializer(info["K"]),
+        trainable=False
     )
 
     # variable-trainable=True
-    pose6 = tf.get_variable(
+    pose6 = tf.Variable(
+        initial_value=info["se3_list"],
         shape=[num_of_img, 6, 1],
         dtype=tf.float32,
         name="para_pose6",
-        trainable=True,
-        initializer=tf.constant_initializer(info["se3_list"]),
+        trainable=True
     )
 
-    para_shape = tf.get_variable(
-        shape=[1, para_shape_shape], dtype=tf.float32, name="para_shape", trainable=True
+    para_shape = tf.Variable(
+        initial_value=tf.zeros([1, para_shape_shape], dtype=tf.float32),
+        shape=[1, para_shape_shape],
+        dtype=tf.float32,
+        name="para_shape",
+        trainable=True
     )
 
-    para_tex = tf.get_variable(
-        shape=[1, para_tex_shape], dtype=tf.float32, name="para_tex", trainable=True
+    para_tex = tf.Variable(
+        initial_value=tf.zeros([1, para_tex_shape], dtype=tf.float32),
+        shape=[1, para_tex_shape],
+        dtype=tf.float32,
+        name="para_tex",
+        trainable=True
     )
 
-    para_illum = tf.get_variable(
+    para_illum = tf.Variable(
+        initial_value=tf.zeros([num_of_img, 27], dtype=tf.float32),
         shape=[num_of_img, 27],
         dtype=tf.float32,
-        initializer=tf.zeros_initializer(),
         name="para_illum",
-        trainable=True,
+        trainable=True
     )
 
     var_list = {
