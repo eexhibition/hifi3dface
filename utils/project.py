@@ -204,10 +204,10 @@ class Projector(object):
             tri 텐서는 각 삼각형을 구성하는 꼭짓점의 인덱스를 포함하고 있습니다.
             tf.gather를 사용하여 이 인덱스에 해당하는 실제 꼭짓점의 좌표를 가져옵니다.
             """
-            v1_idx, v2_idx, v3_idx = tf.unstack(tri, axis=-1)
-            v1 = tf.gather(ver_xyz, v1_idx, axis=1)
-            v2 = tf.gather(ver_xyz, v2_idx, axis=1)
-            v3 = tf.gather(ver_xyz, v3_idx, axis=1)
+            v1_idx, v2_idx, v3_idx = tf.unstack(tri, 3, axis=-1)
+            v1 = tf.gather(ver_xyz, v1_idx, axis=1, name="v1_tri")
+            v2 = tf.gather(ver_xyz, v2_idx, axis=1, name="v2_tri")
+            v3 = tf.gather(ver_xyz, v3_idx, axis=1, name="v3_tri")
 
             # Calculating the normals for each triangle
             """
@@ -218,7 +218,11 @@ class Projector(object):
             """
             EPS = 1e-8
             tri_normals = tf.linalg.cross(v2 - v1, v3 - v1)
-            tri_normals = tri_normals / (tf.norm(tri_normals, axis=-1, keepdims=True) + EPS)
+            tri_normals = tf.divide(
+                tri_normals,
+                (tf.norm(tri_normals, axis=-1, keepdims=True) + EPS),
+                name="norm_tri",
+            )
 
             # Accumulating vertex normals
             """
@@ -228,8 +232,7 @@ class Projector(object):
             """
             tri_normals = tf.tile(tf.expand_dims(tri_normals, 2), [1, 1, 3, 1])
             tri_normals = tf.reshape(tri_normals, [-1, 3])
-
-            tri_votes = tf.cast(tf.greater(tri_normals[:, 2:], 0.1), tf.float32)
+            tri_votes = tf.cast(tf.greater(tri_normals[:, 2:], float(0.1)), tf.float32)
             tri_cnts = tf.ones_like(tri_votes)
 
             """
@@ -237,15 +240,22 @@ class Projector(object):
             각 꼭짓점에 대해 투표를 수행합니다.
             tri_inds 텐서는 각 꼭짓점의 인덱스와 해당 인덱스가 속한 배치의 인덱스를 포함합니다.
             """
-            B = ver_xyz.shape[0]  # batch size
-            tri_flat = tf.reshape(tri, [len(tri) * 3])
-            batch_indices = tf.repeat(tf.range(B), len(tri) * 3)
-            tri_inds = tf.stack([batch_indices, tf.tile(tri_flat, [B])], axis=1)
+            B = v1.get_shape().as_list()[0]  # batch size
+            tri_shape = tf.shape(tri)
+            tri_len = tri_shape[0]  # Or whatever dimension you are interested in
 
-            # tri_normals, votes, cnts를 B 만큼 반복
-            tri_normals = tf.repeat(tri_normals, B, axis=0)
-            votes = tf.repeat(votes, B, axis=0)
-            cnts = tf.repeat(cnts, B, axis=0)
+            batch_indices = tf.reshape(
+                tf.tile(tf.expand_dims(tf.range(B), axis=1), [1, tri_len * 3]),
+                [-1],
+                name="batch_indices",
+            )
+            tri_inds = tf.stack(
+                [
+                    batch_indices,
+                    tf.concat([tf.reshape(tri, [tri_len * 3])] * B, axis=0),
+                ],
+                axis=1,
+            )
 
             """
             5. 투표 결과를 사용하여 꼭짓점의 정규벡터 계산
@@ -256,10 +266,19 @@ class Projector(object):
             ver_normals = tf.tensor_scatter_nd_add(ver_normals, tri_inds, tri_normals)
             ver_normals = ver_normals / (tf.norm(ver_normals, axis=2, keepdims=True) + EPS)
             """
-            ver_shape = ver_xyz.get_shape().as_list()
-            ver_normals = tf.Variable(tf.zeros(ver_shape), trainable=False)
-            votes = tf.reshape(tf.concat([tri_votes] * 3, axis=-1), [-1, 1])
-            cnts = tf.reshape(tf.concat([tri_cnts] * 3, axis=-1), [-1, 1])
+            ver_xyz = tf.convert_to_tensor(ver_xyz)
+            ver_shape = ver_xyz.shape.as_list()
+
+            ver_normals = tf.Variable(
+                initial_value=tf.zeros(ver_shape, dtype=tf.float32),
+                trainable=False,
+                name="ver_norm"
+            )
+
+            init_normals = tf.zeros(ver_shape, dtype=tf.float32)
+            ver_normals.assign(init_normals)
+            ver_normals.assign_add(tf.tensor_scatter_nd_add(ver_normals, tri_inds, tri_normals))
+            ver_normals.assign(ver_normals / (tf.norm(ver_normals, axis=2, keepdims=True) + EPS))
 
             """
             6. 윤곽선 마스크 계산
@@ -268,24 +287,28 @@ class Projector(object):
             마지막으로, 각 꼭짓점의 투표 결과를 횟수로 나누어 평균을 구합니다.
             윤곽선 마스크는 투표 결과가 0보다 크고 1보다 작은 꼭짓점을 찾아서 계산합니다.
             """
-            ver_votes = tf.Variable(tf.zeros(ver_shape[:-1] + [1]), trainable=False)
-            ver_cnts = tf.Variable(tf.zeros(ver_shape[:-1] + [1]), trainable=False)
+            ver_votes = tf.Variable(
+                initial_value=tf.zeros(ver_shape[:-1] + [1], dtype=tf.float32),
+                trainable=False,
+                name="ver_vote"
+            )
+            ver_cnts = tf.Variable(
+                initial_value=tf.zeros(ver_shape[:-1] + [1], dtype=tf.float32),
+                trainable=False,
+                name="ver_cnt"
+            )
 
-            # Accumulating normals for each vertex
-            with tf.control_dependencies([ver_normals.assign(tf.zeros_like(ver_normals))]):
-                ver_normals = tf.tensor_scatter_nd_add(ver_normals, tri_inds, tri_normals)
-                ver_normals = ver_normals / (tf.norm(ver_normals, axis=2, keepdims=True) + EPS)
+            init_votes = tf.zeros(ver_shape[:-1] + [1], dtype=tf.float32)
+            ver_votes.assign(init_votes)
+            ver_cnts.assign(init_votes)
 
-            # Calculating contour mask
-            with tf.control_dependencies([
-                ver_votes.assign(tf.zeros_like(ver_votes)),
-                ver_cnts.assign(tf.zeros_like(ver_cnts))
-            ]):
-                ver_votes = tf.tensor_scatter_nd_add(ver_votes, tri_inds, votes)
-                ver_cnts = tf.tensor_scatter_nd_add(ver_cnts, tri_inds, cnts)
-                ver_votes = ver_votes / (ver_cnts + EPS)
+            ver_votes.assign_add(tf.tensor_scatter_nd_add(ver_votes, tri_inds, tri_votes))
+            ver_cnts.assign_add(tf.tensor_scatter_nd_add(ver_cnts, tri_inds, tri_cnts))
+            ver_votes.assign(ver_votes / (ver_cnts + EPS))
 
-                ver_votes = tf.cast(tf.logical_and(ver_votes > 0, ver_votes < 1), tf.float32)
+            ver_votes1 = tf.less(ver_votes, float(1.0))
+            ver_votes2 = tf.greater(ver_votes, float(0.0))
+            ver_votes.assign(tf.cast(tf.logical_and(ver_votes1, ver_votes2), tf.float32))
 
             return ver_normals, ver_votes
 
