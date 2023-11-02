@@ -116,6 +116,8 @@ def warp_ver_to_uv(
         [tf.reshape(tri_vt, [-1])] * batch_size_dynamic, axis=0, name="tri_vt_list"
     )
 
+    sample_indices = tf.expand_dims(sample_indices, 1)
+
     tri_v_list = tf.stack(
         [sample_indices, tri_v_list], axis=1, name="sample_tri_v_list"
     )
@@ -129,15 +131,15 @@ def warp_ver_to_uv(
 
     assert (
         len(v_attrs_list.shape) == 2
-        and v_attrs_list.shape[0].value == tri_v_list.shape[0].value
+        and v_attrs_list.shape[0] == tri_v_list.shape[0]
     )
 
     # add sample indices to vt_list
-    n_vt = vt_list.shape[0].value
+    n_vt = vt_list.shape[0]
     vt_attrs_list = tf.scatter_nd(
         tri_vt_list,
         v_attrs_list,
-        shape=[batch_size_dynamic, n_vt, v_attrs.shape[2].value],
+        shape=[batch_size_dynamic, n_vt, v_attrs.shape[2]],
         name="vt_attrs_list",
     )
     vt_attrs_count = tf.scatter_nd(
