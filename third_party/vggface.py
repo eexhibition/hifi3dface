@@ -55,17 +55,15 @@ class VGGFace(object):
                     kh, kw, kin, kout = kernel.shape
 
                     if data_format == "nhwc" or data_format == "NHWC":
-                        kernel_var = tf.get_variable(
-                            name=name + "_weight",
-                            dtype=tf.float32,
-                            initializer=tf.constant(kernel),
+                        kernel_var = tf.Variable(
+                            initial_value=tf.constant(kernel, dtype=tf.float32),
                             trainable=self.trainable,
+                            name=name + "_weight"
                         )
-                        bias_var = tf.get_variable(
-                            name=name + "_bias",
-                            dtype=tf.float32,
-                            initializer=tf.constant(bias),
+                        bias_var = tf.Variable(
+                            initial_value=tf.constant(bias, dtype=tf.float32),
                             trainable=self.trainable,
+                            name=name + "_bias"
                         )
 
                         if name[:2] != "fc":
@@ -90,17 +88,15 @@ class VGGFace(object):
                             current = tf.reshape(current, [-1, 1, 1, kout])
                     else:
                         # kernel = np.transpose(kernel, [2,3,1,0])
-                        kernel_var = tf.get_variable(
-                            name=name + "_weight",
-                            dtype=tf.float32,
-                            initializer=tf.constant(kernel),
+                        kernel_var = tf.Variable(
+                            initial_value=tf.constant(kernel, dtype=tf.float32),
                             trainable=self.trainable,
+                            name=name + "_weight"
                         )
-                        bias_var = tf.get_variable(
-                            name=name + "_bias",
-                            dtype=tf.float32,
-                            initializer=tf.constant(bias),
+                        bias_var = tf.Variable(
+                            initial_value=tf.constant(bias, dtype=tf.float32),
                             trainable=self.trainable,
+                            name=name + "_bias"
                         )
 
                         conv = tf.nn.conv2d(
