@@ -179,30 +179,42 @@ def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW):
     learning_rate = tf.maximum(lr_schedule(global_step), FLAGS.min_learning_rate)
     optim = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-    gvs_illum = optim.compute_gradients(tot_loss_illum)
-    gvs = optim.compute_gradients(tot_loss)
+    @tf.function
+    def train_step():
+        with tf.GradientTape() as tape:
+            # 이미지를 다양한 포즈로 렌더링
+            (
+                render_img_in_ori_pose,
+                render_img_in_fake_pose_M,
+                render_img_in_fake_pose_L,
+                render_img_in_fake_pose_R,
+            ) = render_img_in_different_pose(
+                var_list,
+                basis3dmm,
+                FLAGS.project_type,
+                imageH,
+                imageW,
+                opt_type="RGB",
+                is_bfm=FLAGS.is_bfm,
+            )
 
-    capped_gvs_illum = []
-    for grad, var in gvs_illum:
-        if grad is not None:
-            if var.name.startswith("para_illum"):
-                print("optimizing", var.name)
-                capped_gvs_illum.append((tf.clip_by_value(grad, -1.0, 1.0), var))
+            # 손실 계산
+            tot_loss, tot_loss_illum = compute_loss(
+                FLAGS,
+                basis3dmm,
+                var_list,
+                render_img_in_ori_pose,
+                render_img_in_fake_pose_M,
+                render_img_in_fake_pose_L,
+                render_img_in_fake_pose_R,
+            )
 
-    capped_gvs = []
-    for grad, var in gvs:
-        if grad is not None:
-            if var.name.startswith("para_illum") is False:
-                print("optimizing", var.name)
-                if var.name.startswith("para_pose"):
-                    capped_gvs.append((tf.clip_by_value(grad, -1.0, 1.0) * 0.0001, var))
-                else:
-                    capped_gvs.append((tf.clip_by_value(grad, -1.0, 1.0), var))
+        # 그래디언트 계산 및 적용
+        grads = tape.gradient(tot_loss, var_list.values())
+        capped_grads = [tf.clip_by_value(g, -1.0, 1.0) for g in grads]
+        optim.apply_gradients(zip(capped_grads, var_list.values()))
 
-    capped_gvs = capped_gvs + capped_gvs_illum
-    train_op = optim.apply_gradients(
-        capped_gvs, global_step=global_step, name="train_op"
-    )
+        return tot_loss
 
     out_list = {
         "para_shape": var_list["para_shape"],
