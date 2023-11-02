@@ -97,7 +97,6 @@ def warp_ver_to_uv(
 
     # add sample indices to tri_v and tri_vt
     batch_size, v_cnt, n_channels = v_attrs.shape
-    batch_size_dynamic = tf.shape(v_attrs)[0]
     n_tri = tri_v.shape[0]
 
     print('tri_v : ', tri_v)
@@ -105,18 +104,16 @@ def warp_ver_to_uv(
     print('batch_size : ', batch_size)
     print('n_tri : ', n_tri)
     sample_indices = tf.reshape(
-        tf.tile(tf.expand_dims(tf.range(batch_size_dynamic), axis=1), [1, n_tri * 3]),
+        tf.tile(tf.expand_dims(tf.range(batch_size), axis=1), [1, n_tri * 3]),
         [-1],
         name="sample_indices",
     )
     tri_v_list = tf.concat(
-        [tf.reshape(tri_v, [-1, 1])] * batch_size_dynamic, axis=0, name="tri_v_list"
+        [tf.reshape(tri_v, [-1])] * batch_size, axis=0, name="tri_v_list"
     )
     tri_vt_list = tf.concat(
-        [tf.reshape(tri_vt, [-1, 1])] * batch_size_dynamic, axis=0, name="tri_vt_list"
+        [tf.reshape(tri_vt, [-1])] * batch_size, axis=0, name="tri_vt_list"
     )
-
-    sample_indices = tf.expand_dims(sample_indices, 1)
 
     tri_v_list = tf.stack(
         [sample_indices, tri_v_list], axis=1, name="sample_tri_v_list"
@@ -127,23 +124,23 @@ def warp_ver_to_uv(
 
     # gather vertex attributes
     v_attrs_list = tf.gather_nd(v_attrs, tri_v_list)
-    v_attrs_count = tf.ones(dtype=tf.float32, shape=[batch_size_dynamic * n_tri * 3, 1])
+    v_attrs_count = tf.ones(dtype=tf.float32, shape=[batch_size * n_tri * 3, 1])
 
     assert (
         len(v_attrs_list.shape) == 2
-        and v_attrs_list.shape[0] == tri_v_list.shape[0]
+        and v_attrs_list.shape[0].value == tri_v_list.shape[0].value
     )
 
     # add sample indices to vt_list
-    n_vt = vt_list.shape[0]
+    n_vt = vt_list.shape[0].value
     vt_attrs_list = tf.scatter_nd(
         tri_vt_list,
         v_attrs_list,
-        shape=[batch_size_dynamic, n_vt, v_attrs.shape[2]],
+        shape=[batch_size, n_vt, v_attrs.shape[2].value],
         name="vt_attrs_list",
     )
     vt_attrs_count = tf.scatter_nd(
-        tri_vt_list, v_attrs_count, shape=[batch_size_dynamic, n_vt, 1], name="vt_attrs_count"
+        tri_vt_list, v_attrs_count, shape=[batch_size, n_vt, 1], name="vt_attrs_count"
     )
     vt_attrs_list = tf.divide(vt_attrs_list, vt_attrs_count)
 
@@ -151,7 +148,7 @@ def warp_ver_to_uv(
     u, v = tf.split(vt_list, 2, axis=1)
     z = tf.random_normal(shape=[n_vt, 1], stddev=0.000001)
     vt_list = tf.concat([(u * 2 - 1), ((1 - v) * 2 - 1), z], axis=1, name="full_vt")
-    vt_list = tf.stack([vt_list] * batch_size_dynamic, axis=0)
+    vt_list = tf.stack([vt_list] * batch_size, axis=0)
     # scatter vertex texture attributes
 
     renders, _ = rasterize.rasterize_clip_space(
@@ -162,7 +159,7 @@ def warp_ver_to_uv(
         uv_size,
         [-1] * vt_attrs_list.shape[2].value,
     )
-    renders.set_shape((batch_size_dynamic, uv_size, uv_size, n_channels))
+    renders.set_shape((batch_size, uv_size, uv_size, n_channels))
     # renders = tf.clip_by_value(renders, 0, 1)
     # renders = renders[0]
     return renders
