@@ -139,82 +139,63 @@ def define_variable(num_of_img, imageH, imageW, para_shape_shape, para_tex_shape
 
 
 def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW):
+    # tf.GradientTape를 사용하여 자동 미분을 수행
+    with tf.GradientTape() as tape:
+        # render ori img to fit pose, light, shape, tex
+        # render three fake imgs with fake light and poses for ID loss
+        (
+            render_img_in_ori_pose,
+            render_img_in_fake_pose_M,
+            render_img_in_fake_pose_L,
+            render_img_in_fake_pose_R,
+        ) = render_img_in_different_pose(
+            var_list,
+            basis3dmm,
+            FLAGS.project_type,
+            imageH,
+            imageW,
+            opt_type="RGB",
+            is_bfm=FLAGS.is_bfm,
+        )
 
-    # render ori img to fit pose, light, shape, tex
-    # render three fake imgs with fake light and poses for ID loss
-    (
-        render_img_in_ori_pose,
-        render_img_in_fake_pose_M,
-        render_img_in_fake_pose_L,
-        render_img_in_fake_pose_R,
-    ) = render_img_in_different_pose(
-        var_list,
-        basis3dmm,
-        FLAGS.project_type,
-        imageH,
-        imageW,
-        opt_type="RGB",
-        is_bfm=FLAGS.is_bfm,
-    )
-
-    # compute loss
-    tot_loss, tot_loss_illum = compute_loss(
-        FLAGS,
-        basis3dmm,
-        var_list,
-        render_img_in_ori_pose,
-        render_img_in_fake_pose_M,
-        render_img_in_fake_pose_L,
-        render_img_in_fake_pose_R,
-    )
+        # compute loss
+        tot_loss, tot_loss_illum = compute_loss(
+            FLAGS,
+            basis3dmm,
+            var_list,
+            render_img_in_ori_pose,
+            render_img_in_fake_pose_M,
+            render_img_in_fake_pose_L,
+            render_img_in_fake_pose_R,
+        )
 
     # optimizer
-    global_step = tf.Variable(0, trainable=False, name="global_step_train")
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=FLAGS.learning_rate,
         decay_steps=FLAGS.lr_decay_step,
         decay_rate=FLAGS.lr_decay_rate,
         staircase=True
     )
-    learning_rate = tf.maximum(lr_schedule(global_step), FLAGS.min_learning_rate)
+    learning_rate = tf.maximum(lr_schedule(FLAGS.global_step), FLAGS.min_learning_rate)
     optim = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
-    @tf.function
-    def train_step():
-        with tf.GradientTape() as tape:
-            # 이미지를 다양한 포즈로 렌더링
-            (
-                render_img_in_ori_pose,
-                render_img_in_fake_pose_M,
-                render_img_in_fake_pose_L,
-                render_img_in_fake_pose_R,
-            ) = render_img_in_different_pose(
-                var_list,
-                basis3dmm,
-                FLAGS.project_type,
-                imageH,
-                imageW,
-                opt_type="RGB",
-                is_bfm=FLAGS.is_bfm,
-            )
+    # 기울기 계산
+    gradients = tape.gradient(tot_loss, var_list.values())
 
-            # 손실 계산
-            tot_loss, tot_loss_illum = compute_loss(
-                FLAGS,
-                basis3dmm,
-                var_list,
-                render_img_in_ori_pose,
-                render_img_in_fake_pose_M,
-                render_img_in_fake_pose_L,
-                render_img_in_fake_pose_R,
-            )
+    # 기울기 클리핑
+    capped_gradients = []
+    for grad, var in zip(gradients, var_list.values()):
+        if grad is not None:
+            if var.name.startswith("para_illum"):
+                capped_gradients.append((tf.clip_by_value(grad, -1.0, 1.0), var))
+            elif var.name.startswith("para_illum") is False:
+                if var.name.startswith("para_pose"):
+                    capped_gradients.append((tf.clip_by_value(grad, -1.0, 1.0) * 0.0001, var))
+                else:
+                    capped_gradients.append((tf.clip_by_value(grad, -1.0, 1.0), var))
 
-        # 그래디언트 계산 및 적용
-        grads = tape.gradient(tot_loss, var_list.values())
-        capped_grads = [tf.clip_by_value(g, -1.0, 1.0) for g in grads]
-        optim.apply_gradients(zip(capped_grads, var_list.values()))
-
-        return tot_loss
+    # 기울기 적용
+    train_op = optim.apply_gradients(capped_gradients)
 
     out_list = {
         "para_shape": var_list["para_shape"],
