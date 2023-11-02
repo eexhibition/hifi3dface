@@ -87,7 +87,7 @@ def rasterize_clip_space(
     if len(vertices.shape) != 3:
         raise ValueError("The vertex buffer must be 3D.")
     batch_size = int(vertices.shape[0])
-    vertex_count = vertices.shape[1].value
+    vertex_count = int(vertices.shape[1])
 
     # We map the coordinates to normalized device coordinates before passing
     # the scene to the rendering kernel to keep as many ops in tensorflow as
