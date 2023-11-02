@@ -154,7 +154,7 @@ class Losses(object):
             gt_landmark,
         )
         pred_landmark = tf.where(
-            tf.logical_or(tf.is_nan(gt_landmark), tf.is_nan(pred_landmark)),
+            tf.logical_or(tf.math.is_nan(gt_landmark), tf.math.is_nan(pred_landmark)),
             tf.zeros_like(gt_landmark),
             pred_landmark,
         )
