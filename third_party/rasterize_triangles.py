@@ -147,7 +147,7 @@ def rasterize_clip_space(
     # Barycentric interpolation is linear in the reciprocal of the homogeneous
     # W coordinate, so we use these weights to correct for the effects of
     # perspective distortion after rasterization.
-    perspective_distortion_weights = tf.reciprocal(
+    perspective_distortion_weights = tf.math.reciprocal(
         tf.reshape(clip_space_points_w, [-1])
     )
     corner_distortion_weights = tf.gather(perspective_distortion_weights, vertex_ids)
