@@ -102,16 +102,21 @@ def warp_ver_to_uv(
     n_tri = tri_v.shape[0]             # tri_v의 첫 번째 차원 (삼각형의 수)
 
     sample_indices = tf.reshape(
-        tf.tile(tf.expand_dims(tf.range(batch_size), axis=1), [1, n_tri * 3]),
-        [-1, 1],  # 형상을 [-1]에서 [-1, 1]로 변경하여 2차원으로 만듬
-        name="sample_indices",
+        tf.tile(tf.range(batch_size), [n_tri * 3]),
+        [-1, 1]
     )
-    tri_v_list = tf.concat(
-        [tf.reshape(tri_v, [-1])] * batch_size, axis=0, name="tri_v_list"
-    )
-    tri_vt_list = tf.concat(
-        [tf.reshape(tri_vt, [-1])] * batch_size, axis=0, name="tri_vt_list"
-    )
+
+    # tri_v와 tri_vt를 각각 batch_size만큼 반복
+    tri_v_repeated = tf.tile(tf.reshape(tri_v, [-1, 1]), [1, batch_size])
+    tri_vt_repeated = tf.tile(tf.reshape(tri_vt, [-1, 1]), [1, batch_size])
+
+    # 이제 tri_v_repeated와 tri_vt_repeated의 모양을 [batch_size * n_tri * 3]로 변경
+    tri_v_list = tf.reshape(tf.transpose(tri_v_repeated), [-1, 1])
+    tri_vt_list = tf.reshape(tf.transpose(tri_vt_repeated), [-1, 1])
+
+    # tri_v_list와 tri_vt_list를 sample_indices와 결합
+    tri_v_list = tf.concat([sample_indices, tri_v_list], axis=1)
+    tri_vt_list = tf.concat([sample_indices, tri_vt_list], axis=1)
 
     tri_v_list = tf.stack(
         [sample_indices, tri_v_list], axis=1, name="sample_tri_v_list"
