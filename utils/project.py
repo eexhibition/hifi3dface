@@ -111,7 +111,7 @@ class Shader(object):
 
         sh_coefficient: [batch_size, 27] spherical harmonics coefficients.
         """
-        batch_size, image_height, image_width = [s.value for s in normals.shape[:-1]]
+        batch_size, image_height, image_width = normals.shape[:-1]
 
         sh_coef_count = sh_coefficients.get_shape().as_list()[-1]
 
