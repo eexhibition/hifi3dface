@@ -141,7 +141,7 @@ def define_variable(num_of_img, imageH, imageW, para_shape_shape, para_tex_shape
     return var_list
 
 
-def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW, global_step):
+def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW):
     # tf.GradientTape를 사용하여 자동 미분을 수행
     with tf.GradientTape() as tape:
         # render ori img to fit pose, light, shape, tex
