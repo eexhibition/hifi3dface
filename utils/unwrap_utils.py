@@ -103,7 +103,7 @@ def warp_ver_to_uv(
 
     sample_indices = tf.reshape(
         tf.tile(tf.expand_dims(tf.range(batch_size), axis=1), [1, n_tri * 3]),
-        [-1],
+        [-1, 1],  # 형상을 [-1]에서 [-1, 1]로 변경하여 2차원으로 만듬
         name="sample_indices",
     )
     tri_v_list = tf.concat(
