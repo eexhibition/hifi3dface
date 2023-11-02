@@ -178,7 +178,7 @@ def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW, global_step):
         decay_rate=FLAGS.lr_decay_rate,
         staircase=True
     )
-    learning_rate = tf.maximum(lr_schedule(FLAGS.global_step), FLAGS.min_learning_rate)
+    learning_rate = tf.maximum(lr_schedule(global_step), FLAGS.min_learning_rate)
     optim = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     # 기울기 계산
