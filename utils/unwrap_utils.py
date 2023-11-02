@@ -98,6 +98,11 @@ def warp_ver_to_uv(
     # add sample indices to tri_v and tri_vt
     batch_size, v_cnt, n_channels = v_attrs.shape
     n_tri = tri_v.shape[0]
+
+    print('tri_v : ', tri_v)
+    print('v_attrs : ', v_attrs)
+    print('batch_size : ', batch_size)
+    print('n_tri : ', n_tri)
     sample_indices = tf.reshape(
         tf.tile(tf.expand_dims(tf.range(batch_size), axis=1), [1, n_tri * 3]),
         [-1],
@@ -137,7 +142,7 @@ def warp_ver_to_uv(
     vt_attrs_count = tf.scatter_nd(
         tri_vt_list, v_attrs_count, shape=[batch_size, n_vt, 1], name="vt_attrs_count"
     )
-    vt_attrs_list = tf.div(vt_attrs_list, vt_attrs_count)
+    vt_attrs_list = tf.divide(vt_attrs_list, vt_attrs_count)
 
     assert len(vt_list.shape) == 2 and vt_list.shape[1].value == 2
     u, v = tf.split(vt_list, 2, axis=1)
