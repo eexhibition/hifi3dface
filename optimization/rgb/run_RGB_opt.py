@@ -46,6 +46,8 @@ from third_party.ply import write_ply, write_obj
 from utils.basis import load_3dmm_basis, load_3dmm_basis_bfm
 from PIL import Image
 
+# global_step 변수 정의
+global_step = tf.Variable(0, trainable=False, name='global_step')
 
 def define_variable(num_of_img, imageH, imageW, para_shape_shape, para_tex_shape, info):
 
@@ -138,7 +140,7 @@ def define_variable(num_of_img, imageH, imageW, para_shape_shape, para_tex_shape
     return var_list
 
 
-def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW):
+def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW, global_step):
     # tf.GradientTape를 사용하여 자동 미분을 수행
     with tf.GradientTape() as tape:
         # render ori img to fit pose, light, shape, tex
@@ -239,7 +241,7 @@ def RGB_opt(_):
         FLAGS.num_of_img, imageH, imageW, para_shape_shape, para_tex_shape, info
     )
 
-    out_list = build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW)
+    out_list = build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW, global_step)
 
     # summary_op
     summary_op = tf.summary.merge_all()
