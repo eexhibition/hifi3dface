@@ -1,0 +1,111 @@
+#!/bin/bash
+GPU_NO=0;
+is_bfm="False"
+
+# # constants
+basic_path=$(pwd)/3DMM/files/;
+resources_path=$(pwd)/resources/;
+
+uv_base="$basic_path/AI-NEXT-Albedo-Global.mat"
+uv_regional_pyramid_base="$basic_path/AI-NEXT-AlbedoNormal-RPB/"
+
+if [ $is_bfm == "False" ];then
+    shape_exp_bases="$basic_path/AI-NEXT-Shape-NoAug.mat"
+else
+    shape_exp_bases="$resources_path/BFM2009_Model.mat"
+fi
+
+vggpath="$resources_path/vgg-face.mat"
+pb_path=$resources_path/PB/
+
+# # data directories
+ROOT_DIR=$(pwd)/test_data/RGB/test1/single_img/;
+img_dir=$ROOT_DIR
+
+if [ $is_bfm == "False" ];then
+    shape_out_dir=${ROOT_DIR}/our_opt_RGB
+else
+    shape_out_dir=${ROOT_DIR}/bfm_opt_RGB
+fi
+
+train_step=150
+log_step=20
+learning_rate=0.05
+lr_decay_step=20
+lr_decay_rate=0.9
+
+photo_weight=100.0
+gray_photo_weight=80.0
+reg_shape_weight=0.5
+reg_tex_weight=2.0
+id_weight=1.0
+real_86pt_lmk3d_weight=5.0
+real_68pt_lmk2d_weight=5.0
+lmk_struct_weight=0
+
+num_of_img=1
+project_type="Pers"
+
+########################################################
+if [ $is_bfm == "False" ];then
+    echo "start generate HD texture";
+    cd ./texture
+
+    echo "step0: start unwrap";
+    CUDA_VISIBLE_DEVICES=${GPU_NO} python -u step0_unwrapper.py \
+        --basis3dmm_path=${shape_exp_bases} \
+        --uv_path=${uv_base} \
+        --uv_size=512 \
+        --is_mult_view=False \
+        --is_orig_img=True \
+        --input_dir=${shape_out_dir} \
+        --output_dir=${ROOT_DIR}/unwrap
+
+    if [ "$?" -ne 0 ]; then echo "unwrap failed"; exit 1; fi
+
+    echo "step1: start fit AlbedoNormal_RPB";
+    CUDA_VISIBLE_DEVICES=${GPU_NO} python -u step1_fit_AlbedoNormal_RPB.py \
+        --basis3dmm_path=${shape_exp_bases} \
+        --uv_path=${uv_regional_pyramid_base} \
+        --write_graph=False \
+        --data_dir=${ROOT_DIR}/unwrap \
+        --out_dir=${ROOT_DIR}/fit_unwrap \
+        --uv_tv_weight=0.1 \
+        --uv_reg_tex_weight=0.001 \
+        --learning_rate=0.1 \
+        --train_step=200
+
+    if [ "$?" -ne 0 ]; then echo "fit UV failed"; exit 1; fi
+
+    echo "step2: generate tex";
+    CUDA_VISIBLE_DEVICES=${GPU_NO} python -u step2_pix2pix.py --mode texture --func test --pb_path ${pb_path}/pix2pix_tex.pb \
+        --input_dir=${ROOT_DIR}/fit_unwrap \
+        --output_dir=${ROOT_DIR}/pix2pix
+
+    if [ "$?" -ne 0 ]; then echo "generate tex failed"; exit 1; fi
+
+    echo "step2: generate norm";
+    CUDA_VISIBLE_DEVICES=${GPU_NO} python -u step2_pix2pix.py --mode normal --func test --pb_path ${pb_path}/pix2pix_norm.pb \
+        --input_dir=${ROOT_DIR}/fit_unwrap \
+        --output_dir=${ROOT_DIR}/pix2pix
+
+    if [ "$?" -ne 0 ]; then echo "generate norm failed"; exit 1; fi
+
+    FIT_DIR=$ROOT_DIR/fit_unwrap
+    PIX_DIR=$ROOT_DIR/pix2pix
+    UNWRAP_DIR=$ROOT_DIR/unwrap
+    OUT_DIR=$ROOT_DIR/pix2pix_convert
+
+    echo "step3: convert_texture_domain";
+    python -u step3_convert_texture_domain.py \
+        --input_fit_dir=$FIT_DIR \
+        --input_pix2pix_dir=$PIX_DIR \
+        --input_unwrap_dir=$UNWRAP_DIR \
+        --output_dir=$OUT_DIR
+
+    if [ "$?" -ne 0 ]; then echo "convert_texture_domain failed"; exit 1; fi
+
+    cd ..
+fi
+
+########################################################
