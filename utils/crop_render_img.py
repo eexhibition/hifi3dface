@@ -106,7 +106,7 @@ class crop_render_img(object):
             "CONSTANT",
         )
         image_pad = image_pad[:, bbox_y1:bbox_y2, bbox_x1:bbox_x2, :]
-        image_crop = tf.image.resize_images(image_pad, (300, 300))
+        image_crop = tf.image.resize(image_pad, (300, 300))
         return image_crop
 
     @staticmethod
