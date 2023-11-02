@@ -17,7 +17,7 @@ class VGGFace(object):
         self.trainable = trainable
 
     def encoder(self, input_maps, net_name="VGGFace", reuse=False, data_format="nhwc"):
-        with tf.variable_scope(net_name) as scope:
+        with tf.name_scope(net_name) as scope:
             if reuse:
                 scope.reuse_variables()
             # read meta info
