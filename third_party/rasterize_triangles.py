@@ -129,7 +129,7 @@ def rasterize_clip_space(
         # Gathers the vertex indices now because the indices don't contain a batch
         # identifier, and reindexes the vertex ids to point to a (batch,vertex_id)
         vertex_ids = tf.gather(triangles, tf.reshape(triangle_ids, [-1]))
-        reindexed_ids = tf.add(vertex_ids, im * vertices.shape[1].value)
+        reindexed_ids = tf.add(vertex_ids, im * int(vertices.shape[1]))
         per_image_vertex_ids.append(reindexed_ids)
 
     uncorrected_barycentric_coordinates = tf.concat(
