@@ -169,14 +169,15 @@ def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW):
     )
 
     # optimizer
-    global_step = tf.Variable(0, name="global_step_train", trainable=False)
-    learning_rate = tf.maximum(
-        tf.train.exponential_decay(
-            FLAGS.learning_rate, global_step, FLAGS.lr_decay_step, FLAGS.lr_decay_rate
-        ),
-        FLAGS.min_learning_rate,
+    global_step = tf.Variable(0, trainable=False, name="global_step_train")
+    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+        initial_learning_rate=FLAGS.learning_rate,
+        decay_steps=FLAGS.lr_decay_step,
+        decay_rate=FLAGS.lr_decay_rate,
+        staircase=True
     )
-    optim = tf.train.AdamOptimizer(learning_rate=learning_rate)
+    learning_rate = tf.maximum(lr_schedule(global_step), FLAGS.min_learning_rate)
+    optim = tf.keras.optimizers.Adam(learning_rate=learning_rate)
 
     gvs_illum = optim.compute_gradients(tot_loss_illum)
     gvs = optim.compute_gradients(tot_loss)
