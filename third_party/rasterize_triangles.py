@@ -86,7 +86,7 @@ def rasterize_clip_space(
         raise ValueError("Image height must be > 0.")
     if len(vertices.shape) != 3:
         raise ValueError("The vertex buffer must be 3D.")
-    batch_size = vertices.shape[0].value
+    batch_size = int(vertices.shape[0])
     vertex_count = vertices.shape[1].value
 
     # We map the coordinates to normalized device coordinates before passing
