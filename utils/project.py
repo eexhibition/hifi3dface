@@ -197,34 +197,77 @@ class Projector(object):
         """
 
         with tf.name_scope(scope_name):
-            # Extracting the vertices for each triangle
+            """
+            Extracting the vertices for each triangle
+            1. 삼각형의 꼭짓점 가져오기
+            이 부분에서는 메쉬를 구성하는 삼각형의 꼭짓점 좌표를 가져옵니다.
+            tri 텐서는 각 삼각형을 구성하는 꼭짓점의 인덱스를 포함하고 있습니다.
+            tf.gather를 사용하여 이 인덱스에 해당하는 실제 꼭짓점의 좌표를 가져옵니다.
+            """
             v1_idx, v2_idx, v3_idx = tf.unstack(tri, axis=-1)
             v1 = tf.gather(ver_xyz, v1_idx, axis=1)
             v2 = tf.gather(ver_xyz, v2_idx, axis=1)
             v3 = tf.gather(ver_xyz, v3_idx, axis=1)
 
             # Calculating the normals for each triangle
+            """
+            2. 삼각형의 표면 벡터 계산
+            삼각형의 두 변을 사용하여 외적(cross product)을 계산하고, 이를 통해 삼각형의 표면 벡터(정규벡터)를 구합니다.
+            EPS는 0으로 나누는 것을 방지하기 위한 작은 상수입니다.
+            결과 벡터를 정규화하여 길이가 1이 되도록 합니다.
+            """
             EPS = 1e-8
             tri_normals = tf.linalg.cross(v2 - v1, v3 - v1)
             tri_normals = tri_normals / (tf.norm(tri_normals, axis=-1, keepdims=True) + EPS)
 
             # Accumulating vertex normals
+            """
+            3. 꼭짓점의 정규벡터 계산
+            삼각형의 각 꼭짓점에 대해 해당 삼각형의 정규벡터를 할당합니다.
+            이를 위해 텐서의 형태를 변형하여 각 꼭짓점에 대해 동일한 정규벡터가 반복되도록 합니다.
+            """
             tri_normals = tf.tile(tf.expand_dims(tri_normals, 2), [1, 1, 3, 1])
             tri_normals = tf.reshape(tri_normals, [-1, 3])
 
             tri_votes = tf.cast(tf.greater(tri_normals[:, 2:], 0.1), tf.float32)
             tri_cnts = tf.ones_like(tri_votes)
 
+            """
+            4. 정규벡터의 투표
+            각 꼭짓점에 대해 투표를 수행합니다.
+            tri_inds 텐서는 각 꼭짓점의 인덱스와 해당 인덱스가 속한 배치의 인덱스를 포함합니다.
+            """
             B = ver_xyz.shape[0]  # batch size
             tri_flat = tf.reshape(tri, [len(tri) * 3])
             batch_indices = tf.repeat(tf.range(B), len(tri) * 3)
             tri_inds = tf.stack([batch_indices, tf.tile(tri_flat, [B])], axis=1)
 
+            # tri_normals, votes, cnts를 B 만큼 반복
+            tri_normals = tf.repeat(tri_normals, B, axis=0)
+            votes = tf.repeat(votes, B, axis=0)
+            cnts = tf.repeat(cnts, B, axis=0)
+
+            """
+            5. 투표 결과를 사용하여 꼭짓점의 정규벡터 계산
+            tf.tensor_scatter_nd_add를 사용하여 각 꼭짓점에 대해 투표된 정규벡터를 더합니다.
+            이후 정규벡터를 정규화하여 길이를 1로 만듭니다.
+            
+            ver_normals = tf.Variable(tf.zeros(ver_shape), trainable=False)
+            ver_normals = tf.tensor_scatter_nd_add(ver_normals, tri_inds, tri_normals)
+            ver_normals = ver_normals / (tf.norm(ver_normals, axis=2, keepdims=True) + EPS)
+            """
             ver_shape = ver_xyz.get_shape().as_list()
             ver_normals = tf.Variable(tf.zeros(ver_shape), trainable=False)
             votes = tf.reshape(tf.concat([tri_votes] * 3, axis=-1), [-1, 1])
             cnts = tf.reshape(tf.concat([tri_cnts] * 3, axis=-1), [-1, 1])
 
+            """
+            6. 윤곽선 마스크 계산
+            ver_votes는 꼭짓점이 얼마나 많이 "투표"를 받았는지를 나타냅니다.
+            ver_cnts는 해당 꼭짓점에 투표된 횟수를 나타냅니다.
+            마지막으로, 각 꼭짓점의 투표 결과를 횟수로 나누어 평균을 구합니다.
+            윤곽선 마스크는 투표 결과가 0보다 크고 1보다 작은 꼭짓점을 찾아서 계산합니다.
+            """
             ver_votes = tf.Variable(tf.zeros(ver_shape[:-1] + [1]), trainable=False)
             ver_cnts = tf.Variable(tf.zeros(ver_shape[:-1] + [1]), trainable=False)
 
