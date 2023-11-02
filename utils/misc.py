@@ -132,7 +132,7 @@ def tf_rgb_to_hsv(rgb_image):
     h5 = tf.where(tf.equal(c_max, b_img), h_branch5, tf.zeros_like(h_branch5))
     h = h2 + h3 + h4 + h5
 
-    s_branch2 = 1 - tf.div(c_min, c_max + EPS)
+    s_branch2 = 1 - tf.divide(c_min, c_max + EPS)
     s = tf.where(tf.equal(c_max, 0), s_branch2, tf.zeros_like(s_branch2))
 
     v = c_max
