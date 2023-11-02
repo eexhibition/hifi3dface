@@ -245,13 +245,13 @@ def RGB_opt(_):
     out_list = build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW, global_step)
 
     # summary_op
-    summary_op = tf.summary.merge_all()
-    summary_writer = tf.summary.FileWriter(FLAGS.summary_dir)
+    #summary_op = tf.summary.merge_all()
+    #summary_writer = tf.summary.FileWriter(FLAGS.summary_dir)
 
-    if os.path.exists(FLAGS.summary_dir) is False:
-        os.makedirs(FLAGS.summary_dir)
-    if os.path.exists(FLAGS.out_dir) is False:
-        os.makedirs(FLAGS.out_dir)
+    #if os.path.exists(FLAGS.summary_dir) is False:
+    #    os.makedirs(FLAGS.summary_dir)
+    #if os.path.exists(FLAGS.out_dir) is False:
+    #    os.makedirs(FLAGS.out_dir)
 
     # start opt
     config = tf.ConfigProto()
@@ -267,8 +267,8 @@ def RGB_opt(_):
         for step in range(FLAGS.train_step):
 
             if (step % FLAGS.log_step == 0) | (step == FLAGS.train_step - 1):
-                out_summary = sess.run(summary_op)
-                summary_writer.add_summary(out_summary, step)
+                #out_summary = sess.run(summary_op)
+                #summary_writer.add_summary(out_summary, step)
                 print("step: " + str(step))
                 endtime = time.time()
                 print("time:" + str(endtime - starttime))
