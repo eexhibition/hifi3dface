@@ -470,48 +470,25 @@ class Projector(object):
             name=var_scope_name + "ver_uv_clip_xyzw_cnt",
         )
         init_ver_uv = tf.zeros(shape=[batch_size, len(vt_list), 4], dtype=tf.float32)
-        assign_op1 = tf.assign(ver_uv_clip_xyzw_sum, init_ver_uv)
-        assign_op2 = tf.assign(ver_uv_clip_xyzw_cnt, init_ver_uv)
-        with tf.control_dependencies([assign_op1, assign_op2]):
-            ver_uv_clip_xyzw_sum = tf.scatter_nd_add(
-                ver_uv_clip_xyzw_sum, tri_vt_inds, tri_clip_xyzw
-            )
-            ver_uv_clip_xyzw_cnt = tf.scatter_nd_add(
-                ver_uv_clip_xyzw_cnt, tri_vt_inds, tf.ones_like(tri_clip_xyzw)
-            )
-            ver_uv_clip_xyzw = tf.div(ver_uv_clip_xyzw_sum, ver_uv_clip_xyzw_cnt + EPS)
+        ver_uv_clip_xyzw_sum.assign(init_ver_uv)
+        ver_uv_clip_xyzw_cnt.assign(init_ver_uv)
 
-            uv_image, uv_alphas = rasterize_clip_space(
-                ver_uv_clip_xyzw, batch_UV, tri_vt, imageW, imageH, -1.0
-            )
+        ver_uv_clip_xyzw_sum.assign_add(tf.scatter_nd(tri_vt_inds, tri_clip_xyzw, ver_uv_clip_xyzw_sum.shape))
+        ver_uv_clip_xyzw_cnt.assign_add(
+            tf.scatter_nd(tri_vt_inds, tf.ones_like(tri_clip_xyzw), ver_uv_clip_xyzw_cnt.shape))
+        ver_uv_clip_xyzw = tf.divide(ver_uv_clip_xyzw_sum, ver_uv_clip_xyzw_cnt + EPS)
 
-            uv_image = tf.clip_by_value(
-                tf.cast(uv_image, tf.int32), 0, 511
-            )  # should be integer
+        uv_image, uv_alphas = rasterize_clip_space(ver_uv_clip_xyzw, batch_UV, tri_vt, imageW, imageH, -1.0)
+        uv_image = tf.clip_by_value(tf.cast(uv_image, tf.int32), 0, 511)  # should be integer
 
-            batch_vt_indices = tf.reshape(
-                tf.tile(
-                    tf.expand_dims(tf.range(batch_size), axis=1), [1, imageW * imageH]
-                ),
-                [-1, 1],
-                name="batch_indices",
-            )
+        batch_vt_indices = tf.reshape(tf.tile(tf.expand_dims(tf.range(batch_size), axis=1), [1, imageW * imageH]),
+                                      [-1, 1], name="batch_indices")
+        batch_vt_indices = tf.concat([batch_vt_indices, tf.reshape(uv_image, [-1, 2])], axis=1)
 
-            batch_vt_indices = tf.concat(
-                [batch_vt_indices, tf.reshape(uv_image, [-1, 2])], axis=1
-            )
-
-            # careful
-            diffuse_image = tf.reshape(
-                tf.gather_nd(uv_rgb, batch_vt_indices), [batch_size, imageH, imageW, 3]
-            )
-            uv_alphas = (
-                tf.reshape(
-                    tf.gather_nd(uv_mask[:, :, :, 0], batch_vt_indices),
-                    [batch_size, imageH, imageW, 1],
-                )
-                * uv_alphas
-            )
+        # careful
+        diffuse_image = tf.reshape(tf.gather_nd(uv_rgb, batch_vt_indices), [batch_size, imageH, imageW, 3])
+        uv_alphas = tf.reshape(tf.gather_nd(uv_mask[:, :, :, 0], batch_vt_indices),
+                               [batch_size, imageH, imageW, 1]) * uv_alphas
 
         # Have shading
         para_light = para_illum
