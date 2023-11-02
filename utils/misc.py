@@ -110,10 +110,10 @@ def tf_rgb_to_hsv(rgb_image):
     EPS = 1e-8
 
     h_branch1 = tf.zeros_like(c_max)
-    h_branch2 = 60 * tf.div(g_img - b_img, c_max - c_min + EPS)
-    h_branch3 = 60 * tf.div(g_img - b_img, c_max - c_min + EPS) + 360
-    h_branch4 = 60 * tf.div(b_img - r_img, c_max - c_min + EPS) + 120
-    h_branch5 = 60 * tf.div(r_img - g_img, c_max - c_min + EPS) + 240
+    h_branch2 = 60 * tf.divide(g_img - b_img, c_max - c_min + EPS)
+    h_branch3 = 60 * tf.divide(g_img - b_img, c_max - c_min + EPS) + 360
+    h_branch4 = 60 * tf.divide(b_img - r_img, c_max - c_min + EPS) + 120
+    h_branch5 = 60 * tf.divide(r_img - g_img, c_max - c_min + EPS) + 240
 
     h2 = tf.where(
         tf.logical_and(
