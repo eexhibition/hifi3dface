@@ -250,8 +250,8 @@ def RGB_opt(_):
 
     #if os.path.exists(FLAGS.summary_dir) is False:
     #    os.makedirs(FLAGS.summary_dir)
-    #if os.path.exists(FLAGS.out_dir) is False:
-    #    os.makedirs(FLAGS.out_dir)
+    if os.path.exists(FLAGS.out_dir) is False:
+        os.makedirs(FLAGS.out_dir)
 
     # start opt
     gpus = tf.config.experimental.list_physical_devices('GPU')
