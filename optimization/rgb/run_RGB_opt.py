@@ -254,87 +254,91 @@ def RGB_opt(_):
     #    os.makedirs(FLAGS.out_dir)
 
     # start opt
-    config = tf.ConfigProto()
-    # config.gpu_options.per_process_gpu_memory_fraction=0.5
-    config.gpu_options.allow_growth = True
-    with tf.Session(config=config) as sess:
-        sess.run(tf.global_variables_initializer())
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            # GPU 메모리 증가를 허용하도록 설정
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        except RuntimeError as e:
+            # GPU 메모리 증가를 설정할 때 발생할 수 있는 오류를 처리
+            print(e)
 
-        import time
+    starttime = time.time()
 
-        starttime = time.time()
+    @tf.function
+    def train_step():
+        out_list["train_op"]
 
-        for step in range(FLAGS.train_step):
+    for step in range(FLAGS.train_step):
 
-            if (step % FLAGS.log_step == 0) | (step == FLAGS.train_step - 1):
-                #out_summary = sess.run(summary_op)
-                #summary_writer.add_summary(out_summary, step)
-                print("step: " + str(step))
-                endtime = time.time()
-                print("time:" + str(endtime - starttime))
-                starttime = time.time()
+        if (step % FLAGS.log_step == 0) | (step == FLAGS.train_step - 1):
+            #out_summary = sess.run(summary_op)
+            #summary_writer.add_summary(out_summary, step)
+            print("step: " + str(step))
+            endtime = time.time()
+            print("time:" + str(endtime - starttime))
+            starttime = time.time()
 
-            if step == FLAGS.train_step - 1 and FLAGS.save_ply:
-                print("output_final_result...")
-                out_para_shape, out_ver_xyz, out_tex = sess.run(
-                    [out_list["para_shape"], out_list["ver_xyz"], out_list["tex"]]
-                )
-                # output ply
-                v_xyz = out_ver_xyz[0]
-                if FLAGS.is_bfm is False:
-                    uv_map = out_tex[0] * 255.0
-                    uv_size = uv_map.shape[0]
-                    v_rgb = np.zeros_like(v_xyz) + 200  # N x 3
-                    for (v1, v2, v3), (t1, t2, t3) in zip(
-                        basis3dmm["tri"], basis3dmm["tri_vt"]
-                    ):
-                        v_rgb[v1] = uv_map[
-                            int((1.0 - basis3dmm["vt_list"][t1][1]) * uv_size),
-                            int(basis3dmm["vt_list"][t1][0] * uv_size),
-                        ]
-                        v_rgb[v2] = uv_map[
-                            int((1.0 - basis3dmm["vt_list"][t2][1]) * uv_size),
-                            int(basis3dmm["vt_list"][t2][0] * uv_size),
-                        ]
-                        v_rgb[v3] = uv_map[
-                            int((1.0 - basis3dmm["vt_list"][t3][1]) * uv_size),
-                            int(basis3dmm["vt_list"][t3][0] * uv_size),
-                        ]
+        if step == FLAGS.train_step - 1 and FLAGS.save_ply:
+            print("output_final_result...")
+            out_para_shape, out_ver_xyz, out_tex = out_list["para_shape"], out_list["ver_xyz"], out_list["tex"]
+            # output ply
+            v_xyz = out_ver_xyz[0]
+            if FLAGS.is_bfm is False:
+                uv_map = out_tex[0] * 255.0
+                uv_size = uv_map.shape[0]
+                v_rgb = np.zeros_like(v_xyz) + 200  # N x 3
+                for (v1, v2, v3), (t1, t2, t3) in zip(
+                    basis3dmm["tri"], basis3dmm["tri_vt"]
+                ):
+                    v_rgb[v1] = uv_map[
+                        int((1.0 - basis3dmm["vt_list"][t1][1]) * uv_size),
+                        int(basis3dmm["vt_list"][t1][0] * uv_size),
+                    ]
+                    v_rgb[v2] = uv_map[
+                        int((1.0 - basis3dmm["vt_list"][t2][1]) * uv_size),
+                        int(basis3dmm["vt_list"][t2][0] * uv_size),
+                    ]
+                    v_rgb[v3] = uv_map[
+                        int((1.0 - basis3dmm["vt_list"][t3][1]) * uv_size),
+                        int(basis3dmm["vt_list"][t3][0] * uv_size),
+                    ]
 
-                    write_obj(
-                        os.path.join(FLAGS.out_dir, "face.obj"),
-                        v_xyz,
-                        basis3dmm["vt_list"],
-                        basis3dmm["tri"].astype(np.int32),
-                        basis3dmm["tri_vt"].astype(np.int32),
-                    )
-                else:
-                    v_rgb = out_tex[0] * 255.0
-
-                write_ply(
-                    os.path.join(FLAGS.out_dir, "face.ply"),
+                write_obj(
+                    os.path.join(FLAGS.out_dir, "face.obj"),
                     v_xyz,
-                    basis3dmm["tri"],
-                    v_rgb.astype(np.uint8),
-                    True,
+                    basis3dmm["vt_list"],
+                    basis3dmm["tri"].astype(np.int32),
+                    basis3dmm["tri_vt"].astype(np.int32),
                 )
+            else:
+                v_rgb = out_tex[0] * 255.0
 
-                out_diffuse, out_proj_xyz, out_ver_norm = sess.run(
-                    [out_list["diffuse"], out_list["proj_xyz"], out_list["ver_norm"]]
-                )
-                out_diffuse = out_diffuse * 255.0  # RGB 0-255
-                scio.savemat(
-                    os.path.join(FLAGS.out_dir, "out_for_texture.mat"),
-                    {
-                        "ori_img": info["img_ori_list"],  # ? x ?
-                        "diffuse": out_diffuse,  # 300 x 300
-                        "seg": info["seg_list"],  # 300 x 300
-                        "proj_xyz": out_proj_xyz,  # in 300 x 300 img
-                        "ver_norm": out_ver_norm,
-                    },
-                )
+            write_ply(
+                os.path.join(FLAGS.out_dir, "face.ply"),
+                v_xyz,
+                basis3dmm["tri"],
+                v_rgb.astype(np.uint8),
+                True,
+            )
 
-            sess.run(out_list["train_op"])
+            out_diffuse, out_proj_xyz, out_ver_norm = out_list["diffuse"], out_list["proj_xyz"], out_list["ver_norm"]
+            out_diffuse = out_diffuse * 255.0  # RGB 0-255
+            scio.savemat(
+                os.path.join(FLAGS.out_dir, "out_for_texture.mat"),
+                {
+                    "ori_img": info["img_ori_list"],  # ? x ?
+                    "diffuse": out_diffuse,  # 300 x 300
+                    "seg": info["seg_list"],  # 300 x 300
+                    "proj_xyz": out_proj_xyz,  # in 300 x 300 img
+                    "ver_norm": out_ver_norm,
+                },
+            )
+
+        train_step()
 
 
 if __name__ == "__main__":
