@@ -141,7 +141,7 @@ def define_variable(num_of_img, imageH, imageW, para_shape_shape, para_tex_shape
     return var_list
 
 
-def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW):
+def build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW, global_step):
     # tf.GradientTape를 사용하여 자동 미분을 수행
     with tf.GradientTape() as tape:
         # render ori img to fit pose, light, shape, tex
@@ -242,32 +242,52 @@ def RGB_opt(_):
         FLAGS.num_of_img, imageH, imageW, para_shape_shape, para_tex_shape, info
     )
 
-    out_list = build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW)
+    out_list = build_RGB_opt_graph(var_list, basis3dmm, imageH, imageW, global_step)
 
     # summary_op
-    summary_writer = tf.summary.create_file_writer(FLAGS.summary_dir)
+    summary_op = tf.summary.merge_all()
+    summary_writer = tf.summary.FileWriter(FLAGS.summary_dir)
 
-    if not os.path.exists(FLAGS.summary_dir):
+    if os.path.exists(FLAGS.summary_dir) is False:
         os.makedirs(FLAGS.summary_dir)
-    if not os.path.exists(FLAGS.out_dir):
+    if os.path.exists(FLAGS.out_dir) is False:
         os.makedirs(FLAGS.out_dir)
 
-    starttime = time.time()  # 시간 측정을 위해 시작 시간을 저장
+    # start opt
+    config = tf.ConfigProto()
+    # config.gpu_options.per_process_gpu_memory_fraction=0.5
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
+        sess.run(tf.global_variables_initializer())
 
-    @tf.function
-    def train_step():
-        with tf.summary.record_if(step % FLAGS.log_step == 0):
-            out_list["train_op"]
+        import time
+
+        starttime = time.time()
+
+        for step in range(FLAGS.train_step):
+
+            if (step % FLAGS.log_step == 0) | (step == FLAGS.train_step - 1):
+                out_summary = sess.run(summary_op)
+                summary_writer.add_summary(out_summary, step)
+                print("step: " + str(step))
+                endtime = time.time()
+                print("time:" + str(endtime - starttime))
+                starttime = time.time()
+
             if step == FLAGS.train_step - 1 and FLAGS.save_ply:
                 print("output_final_result...")
-                out_para_shape, out_ver_xyz, out_tex = out_list["para_shape"], out_list["ver_xyz"], out_list["tex"]
+                out_para_shape, out_ver_xyz, out_tex = sess.run(
+                    [out_list["para_shape"], out_list["ver_xyz"], out_list["tex"]]
+                )
                 # output ply
-                v_xyz = out_ver_xyz[0].numpy()
+                v_xyz = out_ver_xyz[0]
                 if FLAGS.is_bfm is False:
-                    uv_map = out_tex[0].numpy() * 255.0
+                    uv_map = out_tex[0] * 255.0
                     uv_size = uv_map.shape[0]
                     v_rgb = np.zeros_like(v_xyz) + 200  # N x 3
-                    for (v1, v2, v3), (t1, t2, t3) in zip(basis3dmm["tri"], basis3dmm["tri_vt"]):
+                    for (v1, v2, v3), (t1, t2, t3) in zip(
+                        basis3dmm["tri"], basis3dmm["tri_vt"]
+                    ):
                         v_rgb[v1] = uv_map[
                             int((1.0 - basis3dmm["vt_list"][t1][1]) * uv_size),
                             int(basis3dmm["vt_list"][t1][0] * uv_size),
@@ -280,6 +300,7 @@ def RGB_opt(_):
                             int((1.0 - basis3dmm["vt_list"][t3][1]) * uv_size),
                             int(basis3dmm["vt_list"][t3][0] * uv_size),
                         ]
+
                     write_obj(
                         os.path.join(FLAGS.out_dir, "face.obj"),
                         v_xyz,
@@ -288,7 +309,7 @@ def RGB_opt(_):
                         basis3dmm["tri_vt"].astype(np.int32),
                     )
                 else:
-                    v_rgb = out_tex[0].numpy() * 255.0
+                    v_rgb = out_tex[0] * 255.0
 
                 write_ply(
                     os.path.join(FLAGS.out_dir, "face.ply"),
@@ -298,27 +319,22 @@ def RGB_opt(_):
                     True,
                 )
 
-                out_diffuse, out_proj_xyz, out_ver_norm = out_list["diffuse"], out_list["proj_xyz"], out_list[
-                    "ver_norm"]
-                out_diffuse = out_diffuse.numpy() * 255.0  # RGB 0-255
+                out_diffuse, out_proj_xyz, out_ver_norm = sess.run(
+                    [out_list["diffuse"], out_list["proj_xyz"], out_list["ver_norm"]]
+                )
+                out_diffuse = out_diffuse * 255.0  # RGB 0-255
                 scio.savemat(
                     os.path.join(FLAGS.out_dir, "out_for_texture.mat"),
                     {
                         "ori_img": info["img_ori_list"],  # ? x ?
                         "diffuse": out_diffuse,  # 300 x 300
                         "seg": info["seg_list"],  # 300 x 300
-                        "proj_xyz": out_proj_xyz.numpy(),  # in 300 x 300 img
-                        "ver_norm": out_ver_norm.numpy(),
+                        "proj_xyz": out_proj_xyz,  # in 300 x 300 img
+                        "ver_norm": out_ver_norm,
                     },
                 )
 
-    for step in range(FLAGS.train_step):
-        train_step(step)
-
-        if step % FLAGS.log_step == 0 or step == FLAGS.train_step - 1:
-            print("step:", step)
-            print("time:", time.time() - starttime)
-            starttime = time.time()  # 다음 시간 측정을 위해 시작 시간을 갱신
+            sess.run(out_list["train_op"])
 
 
 if __name__ == "__main__":
