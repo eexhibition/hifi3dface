@@ -61,23 +61,26 @@ def main(_):
         os.makedirs(FLAGS.output_dir)
 
     """ build graph """
-    front_image_batch = tf.placeholder(
-        dtype=tf.float32, shape=[1, None, None, 3], name="front_image"
+    front_image_batch = tf.keras.Input(
+        dtype=tf.float32, shape=[None, None, 3], name="front_image"
     )
-    front_image_batch_resized = tf.image.resize_images(
+    front_image_batch_resized = tf.image.resize(
         front_image_batch, (FLAGS.uv_size, FLAGS.uv_size)
     )
-    front_seg_batch = tf.placeholder(
-        dtype=tf.float32, shape=[1, None, None, 19], name="front_seg"
+
+    front_seg_batch = tf.keras.Input(
+        dtype=tf.float32, shape=[None, None, 19], name="front_seg"
     )
-    front_proj_xyz_batch = tf.placeholder(
+
+    front_proj_xyz_batch = tf.keras.Input(
         dtype=tf.float32,
-        shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
+        shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
         name="front_proj_xyz",
     )
-    front_ver_norm_batch = tf.placeholder(
+
+    front_ver_norm_batch = tf.keras.Input(
         dtype=tf.float32,
-        shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
+        shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
         name="front_ver_norm",
     )
 
@@ -87,80 +90,37 @@ def main(_):
     base_uv_batch = tf.constant(base_uv[np.newaxis, ...], name="base_uv")
 
     if FLAGS.is_mult_view:
-        left_image_batch = tf.placeholder(
-            dtype=tf.float32, shape=[1, None, None, 3], name="left_image"
-        )
-        left_image_batch_resized = tf.image.resize_images(
-            left_image_batch, (FLAGS.uv_size, FLAGS.uv_size)
-        )
-        left_seg_batch = tf.placeholder(
-            dtype=tf.float32, shape=[1, None, None, 19], name="left_seg"
-        )
-        left_proj_xyz_batch = tf.placeholder(
-            dtype=tf.float32,
-            shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
-            name="left_proj_xyz",
-        )
-        left_ver_norm_batch = tf.placeholder(
-            dtype=tf.float32,
-            shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
-            name="left_ver_norm",
-        )
+        left_image_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 3], name="left_image")
+        left_image_batch_resized = tf.image.resize(left_image_batch, (FLAGS.uv_size, FLAGS.uv_size))
+        left_seg_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 19], name="left_seg")
+        left_proj_xyz_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
+                                             name="left_proj_xyz")
+        left_ver_norm_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
+                                             name="left_ver_norm")
 
-        right_image_batch = tf.placeholder(
-            dtype=tf.float32, shape=[1, None, None, 3], name="right_image"
-        )
-        right_image_batch_resized = tf.image.resize_images(
-            right_image_batch, (FLAGS.uv_size, FLAGS.uv_size)
-        )
-        right_seg_batch = tf.placeholder(
-            dtype=tf.float32, shape=[1, None, None, 19], name="right_seg"
-        )
-        right_proj_xyz_batch = tf.placeholder(
-            dtype=tf.float32,
-            shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
-            name="right_proj_xyz",
-        )
-        right_ver_norm_batch = tf.placeholder(
-            dtype=tf.float32,
-            shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
-            name="right_ver_norm",
-        )
+        right_image_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 3], name="right_image")
+        right_image_batch_resized = tf.image.resize(right_image_batch, (FLAGS.uv_size, FLAGS.uv_size))
+        right_seg_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 19], name="right_seg")
+        right_proj_xyz_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
+                                              name="right_proj_xyz")
+        right_ver_norm_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
+                                              name="right_ver_norm")
 
         # read fixed blending masks for multiview
         front_mask_path = "../resources/mid_blend_mask.png"
         left_mask_path = "../resources/left_blend_mask.png"
         right_mask_path = "../resources/right_blend_mask.png"
-        front_mask = (
-            np.asarray(
-                Image.open(front_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)),
-                np.float32,
-            )
-            / 255
-        )
-        left_mask = (
-            np.asarray(
-                Image.open(left_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)),
-                np.float32,
-            )
-            / 255
-        )
-        right_mask = (
-            np.asarray(
-                Image.open(right_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)),
-                np.float32,
-            )
-            / 255
-        )
-        mask_front_batch = tf.constant(
-            front_mask[np.newaxis, ..., np.newaxis], tf.float32, name="mask_front"
-        )
-        mask_left_batch = tf.constant(
-            left_mask[np.newaxis, ..., np.newaxis], tf.float32, name="mask_left"
-        )
-        mask_right_batch = tf.constant(
-            right_mask[np.newaxis, ..., np.newaxis], tf.float32, name="mask_right"
-        )
+
+        front_mask = (np.asarray(Image.open(front_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)), np.float32) / 255)[
+            np.newaxis, ..., np.newaxis]
+        left_mask = (np.asarray(Image.open(left_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)), np.float32) / 255)[
+            np.newaxis, ..., np.newaxis]
+        right_mask = (np.asarray(Image.open(right_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)), np.float32) / 255)[
+            np.newaxis, ..., np.newaxis]
+
+        mask_front_batch = tf.constant(front_mask, dtype=tf.float32, name="mask_front")
+        mask_left_batch = tf.constant(left_mask, dtype=tf.float32, name="mask_left")
+        mask_right_batch = tf.constant(right_mask, dtype=tf.float32, name="mask_right")
 
     front_uv_batch, front_uv_mask_batch = unwrap_utils.unwrap_img_into_uv(
         front_image_batch_resized / 255.0,
