@@ -110,10 +110,10 @@ def warp_ver_to_uv(
         name="sample_indices",
     )
     tri_v_list = tf.concat(
-        [tf.reshape(tri_v, [-1])] * batch_size_dynamic, axis=0, name="tri_v_list"
+        [tf.reshape(tri_v, [-1, 1])] * batch_size_dynamic, axis=0, name="tri_v_list"
     )
     tri_vt_list = tf.concat(
-        [tf.reshape(tri_vt, [-1])] * batch_size_dynamic, axis=0, name="tri_vt_list"
+        [tf.reshape(tri_vt, [-1, 1])] * batch_size_dynamic, axis=0, name="tri_vt_list"
     )
 
     sample_indices = tf.expand_dims(sample_indices, 1)
