@@ -96,27 +96,19 @@ def warp_ver_to_uv(
         raise ValueError("vt_list must be of type float32.")
 
     # add sample indices to tri_v and tri_vt
-    batch_size = tf.shape(v_attrs)[0]  # 런타임에 실제 배치 크기를 가져옴
-    v_cnt = v_attrs.shape[1]           # 두 번째 차원은 미리 알 수 있음
-    n_channels = v_attrs.shape[2]      # 세 번째 차원도 미리 알 수 있음
-    n_tri = tri_v.shape[0]             # tri_v의 첫 번째 차원 (삼각형의 수)
-
+    batch_size, v_cnt, n_channels = v_attrs.shape
+    n_tri = tri_v.shape[0]
     sample_indices = tf.reshape(
-        tf.tile(tf.range(batch_size), [n_tri * 3]),
-        [-1, 1]
+        tf.tile(tf.expand_dims(tf.range(batch_size), axis=1), [1, n_tri * 3]),
+        [-1],
+        name="sample_indices",
     )
-
-    # tri_v와 tri_vt를 각각 batch_size만큼 반복
-    tri_v_repeated = tf.tile(tf.reshape(tri_v, [-1, 1]), [1, batch_size])
-    tri_vt_repeated = tf.tile(tf.reshape(tri_vt, [-1, 1]), [1, batch_size])
-
-    # 이제 tri_v_repeated와 tri_vt_repeated의 모양을 [batch_size * n_tri * 3]로 변경
-    tri_v_list = tf.reshape(tf.transpose(tri_v_repeated), [-1, 1])
-    tri_vt_list = tf.reshape(tf.transpose(tri_vt_repeated), [-1, 1])
-
-    # tri_v_list와 tri_vt_list를 sample_indices와 결합
-    tri_v_list = tf.concat([sample_indices, tri_v_list], axis=1)
-    tri_vt_list = tf.concat([sample_indices, tri_vt_list], axis=1)
+    tri_v_list = tf.concat(
+        [tf.reshape(tri_v, [-1])] * batch_size, axis=0, name="tri_v_list"
+    )
+    tri_vt_list = tf.concat(
+        [tf.reshape(tri_vt, [-1])] * batch_size, axis=0, name="tri_vt_list"
+    )
 
     tri_v_list = tf.stack(
         [sample_indices, tri_v_list], axis=1, name="sample_tri_v_list"
@@ -131,7 +123,7 @@ def warp_ver_to_uv(
 
     assert (
         len(v_attrs_list.shape) == 2
-        and v_attrs_list.shape[0] == tf.shape(tri_v_list)[0]
+        and v_attrs_list.shape[0].value == tri_v_list.shape[0].value
     )
 
     # add sample indices to vt_list
@@ -145,7 +137,7 @@ def warp_ver_to_uv(
     vt_attrs_count = tf.scatter_nd(
         tri_vt_list, v_attrs_count, shape=[batch_size, n_vt, 1], name="vt_attrs_count"
     )
-    vt_attrs_list = tf.divide(vt_attrs_list, vt_attrs_count)
+    vt_attrs_list = tf.div(vt_attrs_list, vt_attrs_count)
 
     assert len(vt_list.shape) == 2 and vt_list.shape[1].value == 2
     u, v = tf.split(vt_list, 2, axis=1)
