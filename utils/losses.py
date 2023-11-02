@@ -84,18 +84,18 @@ class Losses(object):
             error = tf.clip_by_value(tf.abs(a - b), 0, max_val) * mask
             error_sum = tf.reduce_sum(error, axis=axes[1:])
             count = tf.reduce_sum(binary_mask, axis=axes[1:])
-            dist = tf.reduce_mean(tf.div(error_sum, count + EPS), name="l1")
+            dist = tf.reduce_mean(tf.divide(error_sum, count + EPS), name="l1")
         elif opt == "l2":
             error = tf.clip_by_value(tf.square(a - b), 0, max_val) * mask
             error_sum = tf.reduce_sum(error, axis=axes[1:])
             count = tf.reduce_sum(binary_mask, axis=axes[1:])
-            dist = tf.reduce_mean(tf.div(error_sum, count + EPS), name="l2")
+            dist = tf.reduce_mean(tf.divide(error_sum, count + EPS), name="l2")
         elif opt == "l21":
             error = tf.clip_by_value(tf.square(a - b), 0, max_val) * mask
             error_sum = tf.reduce_sum(error, axis=-1, keepdims=True)
             error_sum = tf.reduce_sum(tf.sqrt(error_sum + EPS), axis=axes[1:])
             count = tf.reduce_sum(binary_mask, axis=axes[1:])
-            dist = tf.reduce_mean(tf.div(error_sum, count + EPS), name="l21")
+            dist = tf.reduce_mean(tf.divide(error_sum, count + EPS), name="l21")
         else:
             raise Exception("Invalid loss option")
 
