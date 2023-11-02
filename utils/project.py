@@ -458,19 +458,16 @@ class Projector(object):
             axis=1,
         )
         tri_clip_xyzw = tf.gather_nd(clip_xyzw, tri_inds, name="tri_clip_xyzw")
-        ver_uv_clip_xyzw_sum = tf.get_variable(
-            shape=[batch_size, len(vt_list), 4],
-            dtype=tf.float32,
-            initializer=tf.zeros_initializer(),
+        ver_uv_clip_xyzw_sum = tf.Variable(
+            initial_value=tf.zeros([batch_size, len(vt_list), 4], dtype=tf.float32),
+            trainable=False,
             name=var_scope_name + "ver_uv_clip_xyzw_sum",
-            trainable=False,
         )
-        ver_uv_clip_xyzw_cnt = tf.get_variable(
-            shape=[batch_size, len(vt_list), 4],
-            dtype=tf.float32,
-            initializer=tf.zeros_initializer(),
-            name=var_scope_name + "ver_uv_clip_xyzw_cnt",
+
+        ver_uv_clip_xyzw_cnt = tf.Variable(
+            initial_value=tf.zeros([batch_size, len(vt_list), 4], dtype=tf.float32),
             trainable=False,
+            name=var_scope_name + "ver_uv_clip_xyzw_cnt",
         )
         init_ver_uv = tf.zeros(shape=[batch_size, len(vt_list), 4], dtype=tf.float32)
         assign_op1 = tf.assign(ver_uv_clip_xyzw_sum, init_ver_uv)
