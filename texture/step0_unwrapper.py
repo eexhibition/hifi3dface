@@ -1,7 +1,36 @@
 """
+This file is part of the repo: https://github.com/tencent-ailab/hifi3dface
+
+If you find the code useful, please cite our paper:
+
+"High-Fidelity 3D Digital Human Head Creation from RGB-D Selfies."
+ACM Transactions on Graphics 2021
+Code: https://github.com/tencent-ailab/hifi3dface
+
+Copyright (c) [2020-2021] [Tencent AI Lab]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+"""
 unwrap the input images into UV maps, regardless of the input image size and the UV map size
 """
-from absl import app
 from absl import flags
 import tensorflow as tf
 import numpy as np
@@ -31,28 +60,23 @@ def main(_):
         os.makedirs(FLAGS.output_dir)
 
     """ build graph """
-    front_image_batch = tf.keras.Input(
-        dtype=tf.float32, shape=[None, None, 3], batch_size=1, name="front_image"
+    front_image_batch = tf.compat.v1.placeholder(
+        dtype=tf.float32, shape=[1, None, None, 3], name="front_image"
     )
     front_image_batch_resized = tf.image.resize(
         front_image_batch, (FLAGS.uv_size, FLAGS.uv_size)
     )
-
-    front_seg_batch = tf.keras.Input(
-        dtype=tf.float32, shape=[None, None, 19], batch_size=1, name="front_seg"
+    front_seg_batch = tf.compat.v1.placeholder(
+        dtype=tf.float32, shape=[1, None, None, 19], name="front_seg"
     )
-
-    front_proj_xyz_batch = tf.keras.Input(
+    front_proj_xyz_batch = tf.compat.v1.placeholder(
         dtype=tf.float32,
-        shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
-        batch_size=1,
+        shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
         name="front_proj_xyz",
     )
-
-    front_ver_norm_batch = tf.keras.Input(
+    front_ver_norm_batch = tf.compat.v1.placeholder(
         dtype=tf.float32,
-        shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
-        batch_size=1,
+        shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
         name="front_ver_norm",
     )
 
@@ -62,37 +86,80 @@ def main(_):
     base_uv_batch = tf.constant(base_uv[np.newaxis, ...], name="base_uv")
 
     if FLAGS.is_mult_view:
-        left_image_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 3], batch_size=1, name="left_image")
-        left_image_batch_resized = tf.image.resize(left_image_batch, (FLAGS.uv_size, FLAGS.uv_size))
-        left_seg_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 19], batch_size=1, name="left_seg")
-        left_proj_xyz_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
-                                             batch_size=1, name="left_proj_xyz")
-        left_ver_norm_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
-                                             batch_size=1, name="left_ver_norm")
+        left_image_batch = tf.compat.v1.placeholder(
+            dtype=tf.float32, shape=[1, None, None, 3], name="left_image"
+        )
+        left_image_batch_resized = tf.image.resize(
+            left_image_batch, (FLAGS.uv_size, FLAGS.uv_size)
+        )
+        left_seg_batch = tf.compat.v1.placeholder(
+            dtype=tf.float32, shape=[1, None, None, 19], name="left_seg"
+        )
+        left_proj_xyz_batch = tf.compat.v1.placeholder(
+            dtype=tf.float32,
+            shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
+            name="left_proj_xyz",
+        )
+        left_ver_norm_batch = tf.compat.v1.placeholder(
+            dtype=tf.float32,
+            shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
+            name="left_ver_norm",
+        )
 
-        right_image_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 3], batch_size=1, name="right_image")
-        right_image_batch_resized = tf.image.resize(right_image_batch, (FLAGS.uv_size, FLAGS.uv_size))
-        right_seg_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 19], batch_size=1, name="right_seg")
-        right_proj_xyz_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
-                                              batch_size=1, name="right_proj_xyz")
-        right_ver_norm_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
-                                              batch_size=1, name="right_ver_norm")
+        right_image_batch = tf.compat.v1.placeholder(
+            dtype=tf.float32, shape=[1, None, None, 3], name="right_image"
+        )
+        right_image_batch_resized = tf.image.resize(
+            right_image_batch, (FLAGS.uv_size, FLAGS.uv_size)
+        )
+        right_seg_batch = tf.compat.v1.placeholder(
+            dtype=tf.float32, shape=[1, None, None, 19], name="right_seg"
+        )
+        right_proj_xyz_batch = tf.compat.v1.placeholder(
+            dtype=tf.float32,
+            shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
+            name="right_proj_xyz",
+        )
+        right_ver_norm_batch = tf.compat.v1.placeholder(
+            dtype=tf.float32,
+            shape=[1, basis3dmm["basis_shape"].shape[1] // 3, 3],
+            name="right_ver_norm",
+        )
 
         # read fixed blending masks for multiview
         front_mask_path = "../resources/mid_blend_mask.png"
         left_mask_path = "../resources/left_blend_mask.png"
         right_mask_path = "../resources/right_blend_mask.png"
-
-        front_mask = (np.asarray(Image.open(front_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)), np.float32) / 255)[
-            np.newaxis, ..., np.newaxis]
-        left_mask = (np.asarray(Image.open(left_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)), np.float32) / 255)[
-            np.newaxis, ..., np.newaxis]
-        right_mask = (np.asarray(Image.open(right_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)), np.float32) / 255)[
-            np.newaxis, ..., np.newaxis]
-
-        mask_front_batch = tf.constant(front_mask, dtype=tf.float32, name="mask_front")
-        mask_left_batch = tf.constant(left_mask, dtype=tf.float32, name="mask_left")
-        mask_right_batch = tf.constant(right_mask, dtype=tf.float32, name="mask_right")
+        front_mask = (
+            np.asarray(
+                Image.open(front_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)),
+                np.float32,
+            )
+            / 255
+        )
+        left_mask = (
+            np.asarray(
+                Image.open(left_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)),
+                np.float32,
+            )
+            / 255
+        )
+        right_mask = (
+            np.asarray(
+                Image.open(right_mask_path).resize((FLAGS.uv_size, FLAGS.uv_size)),
+                np.float32,
+            )
+            / 255
+        )
+        mask_front_batch = tf.constant(
+            front_mask[np.newaxis, ..., np.newaxis], tf.float32, name="mask_front"
+        )
+        mask_left_batch = tf.constant(
+            left_mask[np.newaxis, ..., np.newaxis], tf.float32, name="mask_left"
+        )
+        mask_right_batch = tf.constant(
+            right_mask[np.newaxis, ..., np.newaxis], tf.float32, name="mask_right"
+        )
 
     front_uv_batch, front_uv_mask_batch = unwrap_utils.unwrap_img_into_uv(
         front_image_batch_resized / 255.0,
@@ -182,8 +249,10 @@ def main(_):
     uv_seg_mask_batch = tf.identity(uv_seg_mask_batch, name="uv_seg")
     uv_mask_batch = tf.identity(uv_mask_batch, name="uv_mask")
 
+    sess = tf.compat.v1.Session()
     if FLAGS.write_graph:
-        tf.train.write_graph(tf.compat.v1.Session.graph_def, "", FLAGS.pb_path, as_text=True)
+        tf.train.write_graph(sess.graph_def, "", FLAGS.pb_path, as_text=True)
+        exit()
 
     """ load data  """
     # seg: [300,300,19], segmentation
@@ -206,34 +275,22 @@ def main(_):
                 left_img = info["diffuse"][1][np.newaxis, ...]
                 right_img = info["diffuse"][2][np.newaxis, ...]
 
-            @tf.function
-            def run_model(front_img, front_proj_xyz, front_ver_norm, front_seg,
-                          left_img, left_proj_xyz, left_ver_norm, left_seg,
-                          right_img, right_proj_xyz, right_ver_norm, right_seg):
-                # 여기서 uv_batch와 uv_mask_batch는 호출 가능한 모델이나 함수를 의미합니다.
-                # 이를 호출하여 결과를 얻어냅니다.
-                uv_tex_res = uv_batch(front_img, front_proj_xyz, front_ver_norm, front_seg,
-                                      left_img, left_proj_xyz, left_ver_norm, left_seg,
-                                      right_img, right_proj_xyz, right_ver_norm, right_seg)
-                uv_mask_res = uv_mask_batch(front_img, front_proj_xyz, front_ver_norm, front_seg,
-                                            left_img, left_proj_xyz, left_ver_norm, left_seg,
-                                            right_img, right_proj_xyz, right_ver_norm, right_seg)
-                return uv_tex_res, uv_mask_res
-
-            # 변환된 함수를 호출하여 결과를 얻습니다.
-            uv_tex_res, uv_mask_res = run_model(
-                front_img=front_img,
-                front_proj_xyz=info["proj_xyz"][0:1, ...],
-                front_ver_norm=info["ver_norm"][0:1, ...],
-                front_seg=info["seg"][0:1, ...],
-                left_img=left_img,
-                left_proj_xyz=info["proj_xyz"][1:2, ...],
-                left_ver_norm=info["ver_norm"][1:2, ...],
-                left_seg=info["seg"][1:2, ...],
-                right_img=right_img,
-                right_proj_xyz=info["proj_xyz"][2:3, ...],
-                right_ver_norm=info["ver_norm"][2:3, ...],
-                right_seg=info["seg"][2:3, ...]
+            uv_tex_res, uv_mask_res = sess.run(
+                [uv_batch, uv_mask_batch],
+                {
+                    front_image_batch: front_img,
+                    front_proj_xyz_batch: info["proj_xyz"][0:1, ...],
+                    front_ver_norm_batch: info["ver_norm"][0:1, ...],
+                    front_seg_batch: info["seg"][0:1, ...],
+                    left_image_batch: left_img,
+                    left_proj_xyz_batch: info["proj_xyz"][1:2, ...],
+                    left_ver_norm_batch: info["ver_norm"][1:2, ...],
+                    left_seg_batch: info["seg"][1:2, ...],
+                    right_image_batch: right_img,
+                    right_proj_xyz_batch: info["proj_xyz"][2:3, ...],
+                    right_ver_norm_batch: info["ver_norm"][2:3, ...],
+                    right_seg_batch: info["seg"][2:3, ...],
+                },
             )
         else:
             assert info["proj_xyz"].shape[0] >= 1
@@ -242,20 +299,14 @@ def main(_):
             else:
                 front_img = info["diffuse"][0][np.newaxis, ...]
 
-            @tf.function
-            def run_step(front_img, proj_xyz, ver_norm, seg):
-                # 모델이 uv_batch와 uv_mask_batch를 예측하는 로직으로 가정합니다.
-                # 이 함수 내에서 모델을 호출하고 결과를 반환합니다.
-                uv_tex_res = uv_batch(front_img, proj_xyz, ver_norm, seg)
-                uv_mask_res = uv_mask_batch(front_img, proj_xyz, ver_norm, seg)
-                return uv_tex_res, uv_mask_res
-
-            # 이제 함수를 호출하여 결과를 얻습니다.
-            uv_tex_res, uv_mask_res = run_step(
-                front_img=front_img,
-                proj_xyz=info["proj_xyz"][0:1, ...],
-                ver_norm=info["ver_norm"][0:1, ...],
-                seg=info["seg"][0:1, ...],
+            uv_tex_res, uv_mask_res = sess.run(
+                [uv_batch, uv_mask_batch],
+                {
+                    front_image_batch: front_img,
+                    front_proj_xyz_batch: info["proj_xyz"][0:1, ...],
+                    front_ver_norm_batch: info["ver_norm"][0:1, ...],
+                    front_seg_batch: info["seg"][0:1, ...],
+                },
             )
 
         uv_tex_res = uv_tex_res[0]
@@ -270,6 +321,7 @@ def main(_):
         Image.fromarray(np.squeeze(uv_mask_res).astype(np.uint8)).save(
             os.path.join(FLAGS.output_dir, prefix + "_mask.png")
         )
+        sess.close()
 
 
 if __name__ == "__main__":
@@ -293,4 +345,4 @@ if __name__ == "__main__":
     )
     flags.DEFINE_string("uv_path", "../resources/uv_bases", "basis3dmm path")
 
-    app.run(main)
+    tf.app.run(main)
