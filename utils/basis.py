@@ -645,6 +645,8 @@ def scatter_nd_numpy(indices, updates, shape):
     print("Shape of indices_x:", np.squeeze(indices_x).shape)
     print("Shape of updates:", updates.shape)
 
+    tuple_indices = np.stack((indices_y, indices_x), axis=-1)
+
     np.add.at(target, tuple_indices, updates)
 
     return target
