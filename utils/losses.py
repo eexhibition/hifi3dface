@@ -208,7 +208,7 @@ class Losses(object):
     @staticmethod
     def ws_photo_loss(gt_image, render_image, image_mask):
         gray_gt_image = tf.reduce_mean(gt_image, axis=3, keepdims=True)
-        ws_mask = tf.div(1.0, 1 + tf.exp((gray_gt_image * 255.0 - 170) / 20.0))
+        ws_mask = tf.divide(1.0, 1 + tf.exp((gray_gt_image * 255.0 - 170) / 20.0))
         loss = Losses.calc_dist(
             gt_image, render_image, "l21", image_mask * ws_mask, 100
         )
