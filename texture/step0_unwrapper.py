@@ -48,6 +48,7 @@ from utils.basis import load_3dmm_basis, get_geometry
 from utils.const import *
 from utils.misc import tf_blend_uv
 
+tf.compat.v1.disable_eager_execution()
 
 def main(_):
     # load 3dmm
