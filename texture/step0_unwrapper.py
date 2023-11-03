@@ -70,9 +70,9 @@ def main(_):
         left_ver_norm_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
                                              batch_size=1, name="left_ver_norm")
 
-        right_image_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 3], name="right_image")
+        right_image_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 3], batch_size=1, name="right_image")
         right_image_batch_resized = tf.image.resize(right_image_batch, (FLAGS.uv_size, FLAGS.uv_size))
-        right_seg_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 19], name="right_seg")
+        right_seg_batch = tf.keras.Input(dtype=tf.float32, shape=[None, None, 19], batch_size=1, name="right_seg")
         right_proj_xyz_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
                                               batch_size=1, name="right_proj_xyz")
         right_ver_norm_batch = tf.keras.Input(dtype=tf.float32, shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
