@@ -171,7 +171,7 @@ def main(_):
         tot_loss = tot_loss + uv_reg_tex_loss * FLAGS.uv_reg_tex_weight
         loss_str = loss_str + ";reg:{}"
 
-    optim = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
+    optim = tf.optimizers.Adam(learning_rate=FLAGS.learning_rate)
     train_op = optim.minimize(tot_loss, name="train_op")
     init_op = tf.global_variables_initializer()
 
