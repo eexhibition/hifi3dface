@@ -639,12 +639,13 @@ def scatter_nd_numpy(indices, updates, shape):
     indices_y = np.squeeze(indices_y).tolist()
     indices_x = np.squeeze(indices_x).tolist()
     tuple_indices = [indices_y, indices_x]
-    np.add.at(target, tuple_indices, updates)
 
     print("Shape of target:", target.shape)
     print("Shape of indices_y:", np.squeeze(indices_y).shape)
     print("Shape of indices_x:", np.squeeze(indices_x).shape)
     print("Shape of updates:", updates.shape)
+
+    np.add.at(target, tuple_indices, updates)
 
     return target
 
