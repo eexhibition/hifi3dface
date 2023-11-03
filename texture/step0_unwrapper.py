@@ -212,12 +212,9 @@ def main(_):
     uv_seg_mask_batch = tf.identity(uv_seg_mask_batch, name="uv_seg")
     uv_mask_batch = tf.identity(uv_mask_batch, name="uv_mask")
 
-    init_op = tf.global_variables_initializer()
-
-    sess = tf.Session()
     if FLAGS.write_graph:
-        tf.train.write_graph(sess.graph_def, "", FLAGS.pb_path, as_text=True)
-        exit()
+        # TensorFlow 2.x에서는 tf.io.write_graph를 사용합니다.
+        tf.io.write_graph(tf.compat.v1.get_default_graph(), "", FLAGS.pb_path, as_text=True)
 
     """ load data  """
     # seg: [300,300,19], segmentation
@@ -240,22 +237,26 @@ def main(_):
                 left_img = info["diffuse"][1][np.newaxis, ...]
                 right_img = info["diffuse"][2][np.newaxis, ...]
 
-            uv_tex_res, uv_mask_res = sess.run(
-                [uv_batch, uv_mask_batch],
-                {
-                    front_image_batch: front_img,
-                    front_proj_xyz_batch: info["proj_xyz"][0:1, ...],
-                    front_ver_norm_batch: info["ver_norm"][0:1, ...],
-                    front_seg_batch: info["seg"][0:1, ...],
-                    left_image_batch: left_img,
-                    left_proj_xyz_batch: info["proj_xyz"][1:2, ...],
-                    left_ver_norm_batch: info["ver_norm"][1:2, ...],
-                    left_seg_batch: info["seg"][1:2, ...],
-                    right_image_batch: right_img,
-                    right_proj_xyz_batch: info["proj_xyz"][2:3, ...],
-                    right_ver_norm_batch: info["ver_norm"][2:3, ...],
-                    right_seg_batch: info["seg"][2:3, ...],
-                },
+            @tf.function
+            def run_model(front_image, front_proj_xyz, front_ver_norm, front_seg,
+                          left_image, left_proj_xyz, left_ver_norm, left_seg,
+                          right_image, right_proj_xyz, right_ver_norm, right_seg):
+                return uv_batch, uv_mask_batch
+
+            # 함수를 호출하여 결과를 계산합니다.
+            uv_tex_res, uv_mask_res = run_model(
+                front_image=front_img,
+                front_proj_xyz=info["proj_xyz"][0:1, ...],
+                front_ver_norm=info["ver_norm"][0:1, ...],
+                front_seg=info["seg"][0:1, ...],
+                left_image=left_img,
+                left_proj_xyz=info["proj_xyz"][1:2, ...],
+                left_ver_norm=info["ver_norm"][1:2, ...],
+                left_seg=info["seg"][1:2, ...],
+                right_image=right_img,
+                right_proj_xyz=info["proj_xyz"][2:3, ...],
+                right_ver_norm=info["ver_norm"][2:3, ...],
+                right_seg=info["seg"][2:3, ...],
             )
         else:
             assert info["proj_xyz"].shape[0] >= 1
@@ -264,14 +265,17 @@ def main(_):
             else:
                 front_img = info["diffuse"][0][np.newaxis, ...]
 
-            uv_tex_res, uv_mask_res = sess.run(
-                [uv_batch, uv_mask_batch],
-                {
-                    front_image_batch: front_img,
-                    front_proj_xyz_batch: info["proj_xyz"][0:1, ...],
-                    front_ver_norm_batch: info["ver_norm"][0:1, ...],
-                    front_seg_batch: info["seg"][0:1, ...],
-                },
+            @tf.function
+            def process_images(front_image, front_proj_xyz, front_ver_norm, front_seg):
+                # 해당 연산을 계산하고 결과를 반환합니다.
+                return uv_batch, uv_mask_batch
+
+            # 필요한 입력들을 함수에 직접 전달하여 결과를 계산합니다.
+            uv_tex_res, uv_mask_res = process_images(
+                front_image=front_img,
+                front_proj_xyz=info["proj_xyz"][0:1, ...],
+                front_ver_norm=info["ver_norm"][0:1, ...],
+                front_seg=info["seg"][0:1, ...]
             )
 
         uv_tex_res = uv_tex_res[0]
@@ -286,8 +290,6 @@ def main(_):
         Image.fromarray(np.squeeze(uv_mask_res).astype(np.uint8)).save(
             os.path.join(FLAGS.output_dir, prefix + "_mask.png")
         )
-        sess.close()
-
 
 if __name__ == "__main__":
     FLAGS = flags.FLAGS
