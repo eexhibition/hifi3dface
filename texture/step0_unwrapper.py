@@ -346,4 +346,4 @@ if __name__ == "__main__":
     )
     flags.DEFINE_string("uv_path", "../resources/uv_bases", "basis3dmm path")
 
-    tf.app.run(main)
+    app.run(main)
