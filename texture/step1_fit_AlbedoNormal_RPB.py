@@ -130,10 +130,10 @@ def main(_):
     para_uv_dict = {}
     for region_name in uv_region_bases:
         region_basis = uv_region_bases[region_name]
-        para = tf.get_variable(
-            shape=[1, region_basis["basis"].shape[0]],
-            initializer=tf.zeros_initializer(),
-            name="para_" + region_name,
+        para = tf.Variable(
+            initial_value=tf.zeros(shape=[1, region_basis["basis"].shape[0]]),
+            trainable=True,  # You can set this to False if you don't want it to be trained.
+            name="para_" + region_name
         )
         para_uv_dict[region_name] = para
 
