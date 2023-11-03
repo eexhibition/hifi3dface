@@ -75,6 +75,7 @@ def main(_):
     front_proj_xyz_batch = tf.keras.Input(
         dtype=tf.float32,
         shape=[basis3dmm["basis_shape"].shape[1] // 3, 3],
+        batch_size=1,
         name="front_proj_xyz",
     )
 
