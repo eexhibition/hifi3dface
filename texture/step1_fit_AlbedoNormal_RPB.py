@@ -112,7 +112,7 @@ def main(_):
     )
 
     assign_op = tf.group(
-        [tf.assign(var_mask_batch, mask_batch), tf.assign(var_tex_batch, tex_batch)],
+        [var_mask_batch.assign(mask_batch), var_tex_batch.assign(tex_batch)],
         name="assign_op",
     )
 
