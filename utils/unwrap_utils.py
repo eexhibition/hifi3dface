@@ -103,6 +103,8 @@ def warp_ver_to_uv(
     print('v_attrs : ', v_attrs)
     print('batch_size : ', batch_size)
     print('n_tri : ', n_tri)
+    print('실제 배치 크기 : ', tf.shape(v_attrs)[0])
+
     sample_indices = tf.reshape(
         tf.tile(tf.expand_dims(tf.range(batch_size), axis=1), [1, n_tri * 3]),
         [-1],
