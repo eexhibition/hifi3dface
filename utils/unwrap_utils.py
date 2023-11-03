@@ -99,12 +99,6 @@ def warp_ver_to_uv(
     batch_size, v_cnt, n_channels = v_attrs.shape
     n_tri = tri_v.shape[0]
 
-    print('tri_v : ', tri_v)
-    print('v_attrs : ', v_attrs)
-    print('batch_size : ', batch_size)
-    print('n_tri : ', n_tri)
-    print('실제 배치 크기 : ', tf.shape(v_attrs)[0])
-
     sample_indices = tf.reshape(
         tf.tile(tf.expand_dims(tf.range(batch_size), axis=1), [1, n_tri * 3]),
         [-1],
@@ -148,7 +142,7 @@ def warp_ver_to_uv(
 
     assert len(vt_list.shape) == 2 and vt_list.shape[1] == 2
     u, v = tf.split(vt_list, 2, axis=1)
-    z = tf.random_normal(shape=[n_vt, 1], stddev=0.000001)
+    z = tf.random.normal(shape=[n_vt, 1], stddev=0.000001)
     vt_list = tf.concat([(u * 2 - 1), ((1 - v) * 2 - 1), z], axis=1, name="full_vt")
     vt_list = tf.stack([vt_list] * batch_size, axis=0)
     # scatter vertex texture attributes
