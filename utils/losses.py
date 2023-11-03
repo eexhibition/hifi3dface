@@ -110,7 +110,7 @@ class Losses(object):
         front_err = tf.square(front_gt_depth - front_render_depth)
         front_err = tf.clip_by_value(front_err, 0, 16)
         front_sum_err = tf.reduce_sum(front_err * front_depth_mask)
-        front_mean_err = tf.div(front_sum_err, tf.reduce_sum(front_depth_mask))
+        front_mean_err = tf.divide(front_sum_err, tf.reduce_sum(front_depth_mask))
 
         left_gt_depth = gt_depth[1]
         left_render_depth = render_depth[1]
@@ -119,7 +119,7 @@ class Losses(object):
         left_err = tf.square(left_gt_depth - left_render_depth)
         left_err = tf.clip_by_value(left_err, 0, 16)
         left_sum_err = tf.reduce_sum(left_err * left_depth_mask)
-        left_mean_err = tf.div(left_sum_err, tf.reduce_sum(left_depth_mask))
+        left_mean_err = tf.divide(left_sum_err, tf.reduce_sum(left_depth_mask))
 
         right_gt_depth = gt_depth[2]
         right_render_depth = render_depth[2]
@@ -128,7 +128,7 @@ class Losses(object):
         right_err = tf.square(right_gt_depth - right_render_depth)
         right_err = tf.clip_by_value(right_err, 0, 16)
         right_sum_err = tf.reduce_sum(right_err * right_depth_mask)
-        right_mean_err = tf.div(right_sum_err, tf.reduce_sum(right_depth_mask))
+        right_mean_err = tf.divide(right_sum_err, tf.reduce_sum(right_depth_mask))
 
         loss = front_mean_err + left_mean_err + right_mean_err
 
@@ -140,7 +140,7 @@ class Losses(object):
         bottom_err = tf.square(bottom_gt_depth - bottom_render_depth)
         bottom_err = tf.clip_by_value(bottom_err, 0, 4)
         bottom_sum_err = tf.reduce_sum(bottom_err * bottom_depth_mask)
-        bottom_mean_err = tf.div(bottom_sum_err, tf.reduce_sum(bottom_depth_mask))
+        bottom_mean_err = tf.divide(bottom_sum_err, tf.reduce_sum(bottom_depth_mask))
 
         loss = loss + bottom_mean_err
 
@@ -530,7 +530,7 @@ class Losses(object):
             )
             dist_boundary = (
                 tf.reduce_mean(
-                    tf.div(sum_boundary_delta, binary_boundary_count + EPS),
+                    tf.divide(sum_boundary_delta, binary_boundary_count + EPS),
                     name="boundary_dist",
                 )
                 * 200
@@ -540,7 +540,7 @@ class Losses(object):
                 tf.square(stack_delta * stack_non_boundary_mask), axis=axes[1:]
             )
             dist_non_boundary = tf.reduce_mean(
-                tf.div(sum_non_boundary_delta, binary_non_boundary_count + EPS),
+                tf.divide(sum_non_boundary_delta, binary_non_boundary_count + EPS),
                 name="non_boundary_dist",
             )
             loss = dist_boundary + dist_non_boundary
