@@ -60,6 +60,7 @@ from utils.losses import Losses
 from utils.misc import blend_uv
 from utils.tf_LP import TF_LaplacianPyramid as tf_LP
 
+tf.compat.v1.disable_eager_execution()
 
 def get_weighted_photo_mask(uv_region_bases):
     weight_mask_dict = {
@@ -98,15 +99,15 @@ def main(_):
     # save parameters
     save_params()
 
-    mask_batch = tf.placeholder(
+    mask_batch = tf.compat.v1.placeholder(
         dtype=tf.float32, shape=[1, 512, 512, 1], name="uv_mask"
     )
-    tex_batch = tf.placeholder(dtype=tf.float32, shape=[1, 512, 512, 3], name="uv_tex")
+    tex_batch = tf.compat.v1.placeholder(dtype=tf.float32, shape=[1, 512, 512, 3], name="uv_tex")
 
-    var_mask_batch = tf.get_variable(
+    var_mask_batch = tf.compat.v1.get_variable(
         shape=[1, 512, 512, 1], dtype=tf.float32, name="var_mask", trainable=False
     )
-    var_tex_batch = tf.get_variable(
+    var_tex_batch = tf.compat.v1.get_variable(
         shape=[1, 512, 512, 3], dtype=tf.float32, name="var_tex", trainable=False
     )
 
@@ -174,7 +175,7 @@ def main(_):
     train_op = optim.minimize(tot_loss, name="train_op")
     init_op = tf.global_variables_initializer()
 
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
 
         if FLAGS.write_graph:
             tf.train.write_graph(sess.graph_def, "", FLAGS.pb_path, as_text=True)
