@@ -171,9 +171,15 @@ def main(_):
         tot_loss = tot_loss + uv_reg_tex_loss * FLAGS.uv_reg_tex_weight
         loss_str = loss_str + ";reg:{}"
 
+    # Instantiate the optimizer
     optim = tf.optimizers.Adam(learning_rate=FLAGS.learning_rate)
-    with tf.name_scope("train_op"):
-        train_op = optim.minimize(tot_loss)
+
+    # Define the list of variables to be updated by the optimizer
+    var_list = tf.trainable_variables()
+
+    # Use the optimizer to minimize the loss
+    train_op = optim.minimize(tot_loss, var_list=var_list)
+
     init_op = tf.global_variables_initializer()
 
     with tf.compat.v1.Session() as sess:
