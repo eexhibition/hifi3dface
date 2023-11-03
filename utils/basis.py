@@ -635,19 +635,19 @@ def get_uv_texture(uv_bases, para_tex_dict):
 
 def scatter_nd_numpy(indices, updates, shape):
     target = np.zeros(shape, dtype=updates.dtype)
-    indices_y, indices_x = np.split(indices, 2, axis=1)
-    indices_y = np.squeeze(indices_y).tolist()
-    indices_x = np.squeeze(indices_x).tolist()
-    tuple_indices = [indices_y, indices_x]
 
-    print("Shape of target:", target.shape)
-    print("Shape of indices_y:", np.squeeze(indices_y).shape)
-    print("Shape of indices_x:", np.squeeze(indices_x).shape)
-    print("Shape of updates:", updates.shape)
+    # 인덱싱에 적합한 정수 형태의 배열로 인덱스를 확실히 만듭니다
+    indices_y = indices[:, 0].astype(np.intp)
+    indices_x = indices[:, 1].astype(np.intp)
 
-    tuple_indices = np.stack((indices_y, indices_x), axis=-1)
+    # 'target'에 인덱싱하기 위한 배열의 튜플을 사용합니다
+    tuple_indices = (indices_y, indices_x)
 
-    np.add.at(target, tuple_indices, updates)
+    # 각각의 업데이트 위치에 대해 루프를 실행합니다
+    for i in range(len(indices_y)):
+        # 'target'의 위치 (indices_y[i], indices_x[i])에 대한 업데이트는 'updates[i]'입니다
+        # 이것은 지정된 좌표에 RGB 채널에 직접 업데이트를 더합니다
+        target[indices_y[i], indices_x[i]] += updates[i]
 
     return target
 
