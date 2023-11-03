@@ -31,6 +31,7 @@ SOFTWARE.
 """
 unwrap the input images into UV maps, regardless of the input image size and the UV map size
 """
+from absl import app
 from absl import flags
 import tensorflow as tf
 import numpy as np
