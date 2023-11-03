@@ -172,7 +172,8 @@ def main(_):
         loss_str = loss_str + ";reg:{}"
 
     optim = tf.optimizers.Adam(learning_rate=FLAGS.learning_rate)
-    train_op = optim.minimize(tot_loss, name="train_op")
+    with tf.name_scope("train_op"):
+        train_op = optim.minimize(tot_loss)
     init_op = tf.global_variables_initializer()
 
     with tf.compat.v1.Session() as sess:
